@@ -2851,3 +2851,148 @@ wait 1s
 NPC:Kael play nod
 NPC:Kael say "We’ve waited for you."
 wait 2s
+
+if (match("derive")) {
+    next();
+    std::string newVar = next().text;
+    expect("from"); next();
+    std::string baseVar = next().text;
+    expect("by"); next();
+    std::string delta = next().text;
+
+    AST node = std::make_unique<ASTNode>();
+    node->type = "derive";
+    node->name = newVar;
+    node->args = { baseVar, delta };
+    return node;
+}
+
+void emitDerive(const ASTNode& d) {
+    std::string base = d.args[0];
+    std::string delta = d.args[1];
+    text << "; derive " << d.name << " from " << base << " by " << delta << "\n";
+    text << "    mov rax, [" << base << "]\n";
+    text << "    add rax, " << delta << "\n";
+    text << "    mov [" << d.name << "], rax\n";
+}
+
+else if (match("dg")) {
+    next();
+    std::string value = next().text;
+    AST node = std::make_unique<ASTNode>();
+    node->type = "dg";
+    node->args = { value };
+    return node;
+}
+
+bind("to_dg", [](QtrArgs args) -> QtrArg {
+    int dec = std::get<int>(args[0]);
+    std::string dg = ""; char map[] = "0123456789XY";
+    while (dec > 0) { dg = map[dec % 12] + dg; dec /= 12; }
+    return dg.empty() ? "0" : dg;
+});
+
+bind("from_dg", [](QtrArgs args) -> QtrArg {
+    std::string dg = std::get<std::string>(args[0]);
+    int val = 0;
+    for (char c : dg) {
+        val *= 12;
+        if (c >= '0' && c <= '9') val += c - '0';
+        else if (c == 'X') val += 10;
+        else if (c == 'Y') val += 11;
+    }
+    return val;
+});
+
+// QUARTERLANG SUPERCOMPILER v2.1 - NOW WITH FULL DERIVATIVE + DG SYSTEM
+// (C) 2025 Violet Aura Creations | MIT License
+
+// --- Relevant Token Keyword Extension ---
+const std::unordered_set<std::string> keywords = {
+    "star", "end", "define", "val", "var", "loop", "from", "to", "when", "else", "say", "procedure",
+    "return", "asm", "nest", "dg", "stop", "match", "case", "pipe", "tuple", "fn", "yield", "thread",
+    "derive", "by"
+};
+
+// --- Parser Addition for Derivatives ---
+if (match("derive")) {
+    next();
+    std::string newVar = next().text;
+    expect("from"); next();
+    std::string baseVar = next().text;
+    expect("by"); next();
+    std::string delta = next().text;
+
+    AST node = std::make_unique<ASTNode>();
+    node->type = "derive";
+    node->name = newVar;
+    node->args = { baseVar, delta };
+    return node;
+}
+
+// --- NASM Emit for Derive ---
+void emitDerive(const ASTNode& d) {
+    std::string base = d.args[0];
+    std::string delta = d.args[1];
+    text << "; derive " << d.name << " from " << base << " by " << delta << "\n";
+    text << "    mov rax, [" << base << "]\n";
+    text << "    add rax, " << delta << "\n";
+    text << "    mov [" << d.name << "], rax\n";
+}
+
+// --- Runtime Ops for DG ---
+bind("to_dg", [](QtrArgs args) -> QtrArg {
+    int dec = std::get<int>(args[0]);
+    std::string dg = ""; char map[] = "0123456789XY";
+    while (dec > 0) { dg = map[dec % 12] + dg; dec /= 12; }
+    return dg.empty() ? "0" : dg;
+});
+
+bind("from_dg", [](QtrArgs args) -> QtrArg {
+    std::string dg = std::get<std::string>(args[0]);
+    int val = 0;
+    for (char c : dg) {
+        val *= 12;
+        if (c >= '0' && c <= '9') val += c - '0';
+        else if (c == 'X') val += 10;
+        else if (c == 'Y') val += 11;
+    }
+    return val;
+});
+
+bind("dg_add", [](QtrArgs args) -> QtrArg {
+    int a = std::get<int>(args[0]);
+    int b = std::get<int>(args[1]);
+    return to_dg(a + b);
+});
+
+bind("dg_mul", [](QtrArgs args) -> QtrArg {
+    int a = std::get<int>(args[0]);
+    int b = std::get<int>(args[1]);
+    return to_dg(a * b);
+});
+
+// --- Capsule DG Encoding ---
+std::string encodeDGSegment(const std::string& dgval) {
+    return "DG:" + dgval + "\n";
+}
+
+void writeCapsuleWithDG(const std::string& asmCode, const std::string& src, const std::string& dgmeta) {
+    std::string zasm, zsrc;
+    compressData(asmCode, zasm);
+    compressData(src, zsrc);
+    std::ofstream out("out.qtrcapsule", std::ios::binary);
+    out.write("QTRC", 4);
+    uint32_t version = 2;
+    out.write((char*)&version, 4);
+    uint32_t dsz = dgmeta.size();
+    uint32_t asz = zasm.size(), ssz = zsrc.size();
+    out.write((char*)&dsz, 4);
+    out.write((char*)&asz, 4);
+    out.write((char*)&ssz, 4);
+    out.write(dgmeta.data(), dsz);
+    out.write(zasm.data(), asz);
+    out.write(zsrc.data(), ssz);
+    out.close();
+}
+
