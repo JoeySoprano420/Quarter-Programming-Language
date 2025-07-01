@@ -1,7 +1,3 @@
-Based on both the **Quarter Compiler** code and the newly uploaded **“Draft For Quarter Programming Language”**, here is the **full, up-to-date syntax, grammar, and semantics specification** for the **Quarter Programming Language**, incorporating your latest features like **derivatives**, **DGs**, and capsule logic.
-
----
-
 # 🌟 **Quarter Language Specification (v2.1)**
 
 > “Readable like English. Powerful like Assembly. Beautiful like poetry.”
