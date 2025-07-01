@@ -1,5 +1,240 @@
 # Quarter-Programming-Language
 
+# 🌟 Quarter Programming Language (v2.1)
+
+> *Readable like English. Powerful like Assembly. Beautiful like poetry.*
+
+---
+
+## 🚀 Overview
+**QuarterLang** is a new programming language built for maximum readability, structural consistency, and direct executability. 
+It introduces a blend of functional, imperative, and itemized paradigms using fluent, compact English-like syntax.
+
+Supports AOT compilation, split/toggled JIT execution, and inline NASM. Also introduces:
+- **DGs** (Dodecagrams): base-12 numeric system
+- **Derivatives**: transformation-based variable definitions
+- **Capsules**: compressed execution bundles
+
+---
+
+## 🧠 Language Design Paradigms
+- **ITO** – Itemized Transformative Objective
+- **FD** – Functional Directive
+- **SII** – Sequential Iterative Imperative
+- **LP** – Lateral Procedural
+- **LSFS** – Longitudinal Scope Full Stack
+
+---
+
+## 📘 Program Structure
+```quarter
+star
+  ...your code here...
+end
+```
+
+All programs start with `star` and end with `end`. Every open block must be closed.
+
+---
+
+## 🔤 Core Keywords
+| Keyword     | Purpose                                   |
+|-------------|-------------------------------------------|
+| `star`      | Begin program block                       |
+| `end`       | End program block                         |
+| `val`       | Immutable variable                        |
+| `var`       | Mutable variable                          |
+| `say`       | Print to output                           |
+| `loop`      | For loop                                  |
+| `when`      | If conditional                            |
+| `else`      | Else branch                               |
+| `derive`    | Derivative assignment                     |
+| `dg`        | Dodecagram base-12 numeric type           |
+| `match`     | Pattern matching                          |
+| `case`      | Match case                                |
+| `define`    | Function definition                       |
+| `procedure` | Alternative to define                     |
+| `return`    | Return from function                      |
+| `yield`     | Yield value                               |
+| `thread`    | Spawn parallel thread                     |
+| `pipe`      | Pipe to stream or file                    |
+| `nest`      | Inline block encapsulation                |
+| `fn`        | Anonymous function                        |
+| `asm`       | Inline assembly                           |
+| `stop`      | Immediate halt                            |
+
+---
+
+## 🔢 Data Types
+- `int` — whole numbers
+- `float` — decimals with precision
+- `string` — text
+- `bool` — true/false
+- `dg` — base-12 dodecagram
+
+---
+
+## 🔧 Variables & Output
+```quarter
+val x as int: 10
+var y as float: 2.5
+say "The value is {x}"
+```
+
+---
+
+## 🧬 Derivatives
+```quarter
+val base as int: 20
+derive speed from base by 5
+say speed  # outputs 25
+```
+
+---
+
+## 🧮 DG (Dodecagram) System
+```quarter
+val hex as dg: 9A1
+say from_dg(hex)     # Outputs decimal
+say to_dg(1234)      # Converts decimal to DG
+```
+
+### DG Math
+```quarter
+say dg_add(100, 200)
+say dg_mul(12, 3)
+```
+
+---
+
+## 🔁 Control Flow
+### Loop
+```quarter
+loop from 1 to 5:
+  say "Counting..."
+```
+
+### Conditional
+```quarter
+when x > 10:
+  say "Large"
+else:
+  say "Small"
+```
+
+### Match Case
+```quarter
+match val:
+  case 1:
+    say "One"
+  case 2:
+    say "Two"
+```
+
+---
+
+## 🎯 Functions
+```quarter
+define greet(name as string):
+  say "Hello, {name}"
+```
+
+### Return & Yield
+```quarter
+define double(n as int):
+  return n * 2
+```
+
+---
+
+## 🧵 Threads & Pipes
+```quarter
+thread monitor()
+pipe write: "logfile.txt"
+```
+
+---
+
+## ⚙️ Inline NASM
+```quarter
+asm {
+  mov rax, 7
+  inc rax
+}
+```
+
+---
+
+## 📦 Capsules
+Compiled as `.qtrcapsule`:
+- `QTRC` magic header
+- Version block
+- Compressed:
+  - Source
+  - NASM
+  - DG Metadata
+
+```cpp
+writeCapsuleWithDG(asmCode, srcCode, dg_meta);
+```
+
+---
+
+## 🔧 Runtime Built-ins
+| Function      | Description                  |
+|---------------|------------------------------|
+| `to_dg(n)`    | Int → DG string              |
+| `from_dg(d)`  | DG string → Int              |
+| `dg_add(a,b)` | Add → DG result              |
+| `dg_mul(a,b)` | Multiply → DG result         |
+
+---
+
+## 📂 Project Structure
+```
+/quarterlang
+├── compiler.cpp
+├── runtime.cpp
+├── README.md  ← This file
+├── examples/
+│   ├── test_derive_01.qtr
+│   ├── test_dg_01.qtr
+│   └── test_dg_math.qtr
+└── out/
+    └── program.qtrcapsule
+```
+
+---
+
+## ✅ Example Program
+```quarter
+star
+val velocity as int: 88
+derive momentum from velocity by 44
+say momentum
+
+val hex as dg: 9A1
+say from_dg(hex)
+say to_dg(1234)
+say dg_add(100, 100)
+say dg_mul(12, 12)
+
+loop from 1 to 3:
+  say "Quarter Running..."
+end
+```
+
+---
+
+## 🔗 License
+MIT © 2025 Violet Aura Creations  
+Follow development: [github.com/violet-aura/quarterlang](#)
+
+---
+
+## ✨ Contributions
+Open issues, pull requests, and community examples welcome!
+
 
 🔤 Core Grammar & Structure
 🪐 Program Blocks
