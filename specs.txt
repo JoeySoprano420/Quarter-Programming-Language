@@ -1,0 +1,207 @@
+# Quarter Programming Language 
+
+> “Readable like English. Powerful like Assembly. Beautiful like poetry.” “Built to read like vision, execute like code, and endure like art.”
+
+---
+
+## 🌟 Overview
+**Quarter** is a high-readability, semantically rich, ultra-fluent programming language built on:
+- ✅ Itemized Transformative Objectives (ITO)
+- ✅ Functional Directives
+- ✅ Sequential Iterative Imperatives
+- ✅ Lateral Procedural Design
+- ✅ Longitudinal Full Stack Scoping
+
+It features derivative logic, dodecagram (DG) numeric base, inline NASM, and capsule compilation.
+
+---
+
+## 🔤 Core Syntax Structure
+```quarter
+star
+  ...code...
+end
+```
+
+---
+
+## 🧾 Statements & Keywords
+| Keyword     | Purpose                                   | Example                            |
+|-------------|-------------------------------------------|------------------------------------|
+| `val`       | Declare immutable variable                | `val x as int: 5`                  |
+| `var`       | Declare mutable variable                  | `var score as float: 0.0`          |
+| `say`       | Output a value                            | `say "hello"`                      |
+| `loop`      | Create a for-loop                         | `loop from 1 to 5:`                |
+| `when`      | Conditional branch                        | `when x > 0:`                      |
+| `else`      | Alternative branch                        | `else:`                            |
+| `derive`    | Transform one variable from another       | `derive y from x by 2`             |
+| `dg`        | Declare DG (dodecagram) base-12 value     | `val z as dg: 9A1`                 |
+| `match`     | Match against multiple values             | `match status:`                    |
+| `case`      | Define branch for match                   | `case 0:`                          |
+| `define`    | Function declaration                      | `define foo():`                   |
+| `procedure` | Procedure declaration                     | `procedure do_this():`            |
+| `return`    | Return from function                      | `return value`                    |
+| `yield`     | Yield value in generator                  | `yield item`                      |
+| `thread`    | Start new parallel thread                 | `thread handle()`                 |
+| `pipe`      | Pipe output                               | `val out as pipe: "log.txt"`      |
+| `fn`        | Anonymous function                        | `val adder as fn a b -> a + b`    |
+| `nest`      | Scoped block                              | `nest debug:`                     |
+| `stop`      | Immediate halt                            | `stop`                            |
+| `asm`       | Inline NASM                               | `asm { mov rax, 1 }`              |
+
+---
+
+## 🧠 Expressions
+### 🔢 Arithmetic & Logic
+```quarter
+val result as int: 10 + 5 * 2
+```
+
+### 🔍 Comparison
+```quarter
+when x > 100:
+  say "Big!"
+```
+
+### 💬 String Interpolation
+```quarter
+val name as string: "Joey"
+say "Hi, {name}"
+```
+
+---
+
+## 🧩 Derivatives
+```quarter
+val base as int: 10
+derive total from base by 5  # total = base + 5
+```
+
+---
+
+## 🧮 Dodecagrams (DGs)
+### 📌 DG Notation
+```quarter
+val d as dg: 9A1
+say from_dg(d)        # → decimal
+say to_dg(1234)       # → base-12
+```
+
+### ➕ DG Math
+```quarter
+say dg_add(100, 200)  # → base-12 sum
+say dg_mul(12, 12)    # → base-12 product
+```
+
+> DG digits: 0–9, X (=10), Y (=11)
+
+---
+
+## 🔁 Control Flow
+### 🔂 Loops
+```quarter
+loop from 1 to 5:
+  say "Quarter Loop"
+```
+
+### 🧾 Match-Case
+```quarter
+match level:
+  case 1:
+    say "One"
+  case 2:
+    say "Two"
+```
+
+---
+
+## 🧷 Functions & Procedures
+### 🧰 Function Declaration
+```quarter
+define square(n as int):
+  return n * n
+```
+
+### 🔁 Generator Example
+```quarter
+define count():
+  loop from 1 to 3:
+    yield "tick"
+```
+
+---
+
+## 🧵 Threads & I/O
+```quarter
+thread run_task()
+pipe write: "log.txt"
+```
+
+---
+
+## 🧬 Inline Assembly
+```quarter
+asm {
+  mov rax, 7
+  inc rax
+}
+```
+
+---
+
+## 📦 Capsule Format
+### 📦 `.qtrcapsule` Contains:
+- Header: `QTRC`
+- Version: `2`
+- Sections:
+  - Compressed NASM
+  - Compressed Source
+  - DG metadata
+
+Used for secure, bundled execution and inspection.
+
+---
+
+## 🧠 QuarterOps Runtime Bindings
+| Function       | Description                        |
+|----------------|------------------------------------|
+| `to_dg(n)`     | Integer → Dodecagram string        |
+| `from_dg(d)`   | Dodecagram string → Integer        |
+| `dg_add(a,b)`  | DG-style addition                  |
+| `dg_mul(a,b)`  | DG-style multiplication            |
+
+---
+
+## ✅ Example Program
+```quarter
+star
+val velocity as int: 88
+derive momentum from velocity by 44
+say momentum
+
+val hex as dg: 9A1
+say from_dg(hex)
+say to_dg(1234)
+say dg_add(100, 100)
+say dg_mul(12, 12)
+
+loop from 1 to 3:
+  say "Quarter Running..."
+end
+```
+
+---
+
+## 🔧 Coming Soon
+- `capsule import/export`
+- `net` and `subnet` expression pipelines
+- `inline learning observers`
+- `full NASM + LLVM AOT pipeline`
+
+---
+
+---
+
+For more examples, join the development at: https://github.com/JoeySoprano420/Quarter-Programming-Language
+
+> “Built to read like vision, execute like code, and endure like art.”
