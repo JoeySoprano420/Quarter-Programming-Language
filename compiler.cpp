@@ -132,11 +132,6 @@ struct SayNode : ASTNode {
     std::string message;
 };
 
-struct DeriveNode : ASTNode {
-    std::string name;
-    std::string base;
-};
-
 struct LoopNode : ASTNode {
     std::string varName;
     std::string from;
@@ -145,28 +140,6 @@ struct LoopNode : ASTNode {
     ~LoopNode() {
         for (auto* stmt : body) delete stmt;
     }
-};
-
-struct ProcedureNode : ASTNode {
-    std::string name;
-    std::vector<std::pair<std::string, std::string>> params; // (name, type)
-    std::vector<ASTNode*> body;
-    std::string returnType;
-    ~ProcedureNode() {
-        for (auto* stmt : body) delete stmt;
-    }
-};
-
-struct ReturnNode : ASTNode {
-    std::string value;
-};
-
-struct YieldNode : ASTNode {
-    std::string value;
-};
-
-struct ThreadNode : ASTNode {
-    std::string procedureName;
 };
 
 // === Parser ===
@@ -201,10 +174,6 @@ private:
         if (match("val")) return parseVal();
         if (match("say")) return parseSay();
         if (match("loop")) return parseLoop();
-        if (match("procedure")) return parseProcedure();
-        if (match("return")) return parseReturn();
-        if (match("yield")) return parseYield();
-        if (match("thread")) return parseThread();
         advance(); // skip unknown
         return nullptr;
     }
@@ -246,60 +215,28 @@ private:
         consume("}", "Expected '}' to end loop body");
         return node;
     }
-    ASTNode* parseProcedure() {
-        advance(); // 'procedure'
-        std::string name = advance().value;
-        ProcedureNode* node = new ProcedureNode();
-        node->name = name;
-        consume("(", "Expected '(' after procedure name");
-        while (!match(")")) {
-            std::string paramName = advance().value;
-            consume(":", "Expected ':' in param");
-            std::string paramType = advance().value;
-            node->params.push_back(std::make_pair(paramName, paramType));
-            if (match(",")) advance();
-        }
-        consume(")", "Expected ')' after params");
-        if (match(":")) {
-            advance();
-            node->returnType = advance().value;
-        }
-        consume("{", "Expected '{' to start procedure body");
-        while (!match("}")) {
-            node->body.push_back(parseStatement());
-        }
-        consume("}", "Expected '}' to end procedure body");
-        return node;
-    }
-    ASTNode* parseReturn() {
-        advance(); // 'return'
-        std::string value = advance().value;
-        ReturnNode* node = new ReturnNode();
-        node->value = value;
-        return node;
-    }
-    ASTNode* parseYield() {
-        advance(); // 'yield'
-        std::string value = advance().value;
-        YieldNode* node = new YieldNode();
-        node->value = value;
-        return node;
-    }
-    ASTNode* parseThread() {
-        advance(); // 'thread'
-        std::string proc = advance().value;
-        ThreadNode* node = new ThreadNode();
-        node->procedureName = proc;
-        return node;
-    }
 };
 
 // === Code Generator ===
 class CodeGenerator {
 public:
     void generate(ProgramNode* program) {
-        std::cout << "[CodeGen] Generating IR (stub)\n";
-        // Walk AST and emit IR or bytecode
+        std::cout << "[CodeGen] IR:\n";
+        for (auto* stmt : program->statements) {
+            if (auto* val = dynamic_cast<ValNode*>(stmt)) {
+                std::cout << "val " << val->name << ":" << val->type << " = " << val->value << "\n";
+            } else if (auto* say = dynamic_cast<SayNode*>(stmt)) {
+                std::cout << "say \"" << say->message << "\"\n";
+            } else if (auto* loop = dynamic_cast<LoopNode*>(stmt)) {
+                std::cout << "loop " << loop->varName << " from " << loop->from << " to " << loop->to << " {\n";
+                for (auto* bodyStmt : loop->body) {
+                    if (auto* say2 = dynamic_cast<SayNode*>(bodyStmt)) {
+                        std::cout << "  say \"" << say2->message << "\"\n";
+                    }
+                }
+                std::cout << "}\n";
+            }
+        }
     }
 };
 
@@ -307,8 +244,34 @@ public:
 class NasmCodegen {
 public:
     void compileToNasm(ProgramNode* program) {
-        std::cout << "[NASM] Compiling to NASM (stub)\n";
-        // Walk AST and emit NASM assembly
+        std::ofstream out("output.asm");
+        out << "section .data\n";
+        int strId = 0;
+        std::vector<std::string> strLabels;
+        for (auto* stmt : program->statements) {
+            if (auto* say = dynamic_cast<SayNode*>(stmt)) {
+                std::string label = "str" + std::to_string(strId++);
+                out << label << " db \"" << say->message << "\",10,0\n";
+                strLabels.push_back(label);
+            }
+        }
+        out << "section .text\n";
+        out << "global _start\n";
+        out << "_start:\n";
+        strId = 0;
+        for (auto* stmt : program->statements) {
+            if (auto* say = dynamic_cast<SayNode*>(stmt)) {
+                std::string label = strLabels[strId++];
+                out << "    mov rax, 1\n";
+                out << "    mov rdi, 1\n";
+                out << "    mov rsi, " << label << "\n";
+                out << "    mov rdx, " << (say->message.size() + 1) << "\n";
+                out << "    syscall\n";
+            }
+        }
+        out << "    mov rax, 60\n    xor rdi, rdi\n    syscall\n";
+        out.close();
+        std::cout << "[NASM] Assembly written to output.asm\n";
     }
 };
 
@@ -316,39 +279,110 @@ public:
 class CapsuleVM {
 public:
     void execute(const std::string& capsulePath) {
-        std::cout << "[VM] Executing capsule: " << capsulePath << " (stub)\n";
+        std::ifstream in(capsulePath);
+        if (!in) {
+            std::cerr << "[VM] Could not open capsule: " << capsulePath << "\n";
+            return;
+        }
+        std::string line;
+        while (std::getline(in, line)) {
+            if (line.find("say") == 0) {
+                size_t pos = line.find("\"");
+                if (pos != std::string::npos) {
+                    std::string msg = line.substr(pos + 1, line.rfind("\"") - pos - 1);
+                    std::cout << msg << std::endl;
+                }
+            }
+        }
     }
     void runInteractive() {
-        std::cout << "[VM] Interactive mode (stub)\n";
+        std::cout << "[VM] Interactive mode. Type 'exit' to quit.\n";
+        std::string line;
+        while (true) {
+            std::cout << ">> ";
+            std::getline(std::cin, line);
+            if (line == "exit") break;
+            if (line.find("say") == 0) {
+                size_t pos = line.find("\"");
+                if (pos != std::string::npos) {
+                    std::string msg = line.substr(pos + 1, line.rfind("\"") - pos - 1);
+                    std::cout << msg << std::endl;
+                }
+            }
+        }
     }
     void enterDebugShell() {
-        std::cout << "[VM] Debug shell (stub)\n";
+        std::cout << "[VM] Debug shell. Type 'mem' to inspect memory, 'exit' to quit.\n";
+        std::string line;
+        while (true) {
+            std::cout << "(debug) ";
+            std::getline(std::cin, line);
+            if (line == "exit") break;
+            if (line == "mem") inspectMemory();
+        }
     }
-
 private:
     typedef std::unordered_map<std::string, TypedValue> Scope;
     std::stack<Scope> memoryStack;
-    std::unordered_map<std::string, ProcedureNode*> procedures;
-
-    void runLine(const std::string& line) {}
-    void executeLoop(const std::string& var, int from, int to, const std::vector<std::string>& body) {}
-    void callProcedure(const std::string& name, const std::vector<std::string>& args) {}
-    void runThreadedProcedure(const std::string& name) {}
-    void pushScope() {}
-    void popScope() {}
-    std::string getVar(const std::string& name) { return ""; }
-    void setVar(const std::string& name, const std::string& value, const std::string& type) {}
-    void reportError(const std::string& msg, int line) {}
-    void inspectMemory() {}
-};
-
-// === Language Server Protocol (LSP) Stub ===
-class LanguageServer {
-public:
-    void start() {
-        std::cout << "[LSP] Language server started (stub)\n";
+    std::unordered_map<std::string, int> variables;
+    void inspectMemory() {
+        std::cout << "[VM] Memory inspection not implemented.\n";
     }
 };
 
-// === Self-hosting Compiler Entry Point ===
-class QuarterSelf;
+// === Language Server Protocol (LSP) Minimal Example ===
+class LanguageServer {
+public:
+    void start() {
+        std::cout << "[LSP] Language server started (minimal example)\n";
+        std::string line;
+        while (std::getline(std::cin, line)) {
+            if (line.find("shutdown") != std::string::npos) break;
+            if (line.find("initialize") != std::string::npos)
+                std::cout << "{\"jsonrpc\":\"2.0\",\"result\":{\"capabilities\":{}},\"id\":1}\n";
+        }
+    }
+};
+
+// === Main Compiler and Runner ===
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        std::cerr << "Usage: quarterc <source.qtr | run file.qtrcapsule | debug file.qtrcapsule | lsp>\n";
+        return 1;
+    }
+    std::string mode = argv[1];
+    if (mode == "run" && argc >= 3) {
+        CapsuleVM vm;
+        vm.execute(argv[2]);
+        return 0;
+    }
+    if (mode == "debug" && argc >= 3) {
+        CapsuleVM vm;
+        vm.execute(argv[2]);
+        vm.enterDebugShell();
+        return 0;
+    }
+    if (mode == "lsp") {
+        LanguageServer lsp;
+        lsp.start();
+        return 0;
+    }
+    std::ifstream file(argv[1]);
+    if (!file) {
+        std::cerr << "Could not open file: " << argv[1] << "\n";
+        return 1;
+    }
+    std::string source((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    Lexer lexer(source);
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    ProgramNode* program = parser.parse();
+    CodeGenerator generator;
+    generator.generate(program);
+    NasmCodegen asmgen;
+    asmgen.compileToNasm(program);
+    CapsuleVM vm;
+    vm.execute("output.asm");
+    delete program;
+    return 0;
+}
