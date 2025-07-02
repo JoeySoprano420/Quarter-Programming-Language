@@ -14,6 +14,7 @@
 #include <thread>
 #include <map>
 #include <algorithm>
+#include <memory>
 
 #ifdef _WIN32
 #include <io.h>
@@ -133,53 +134,46 @@ std::vector<Token> Lexer::tokenize() {
 // === AST Nodes ===
 struct ASTNode {
     virtual ~ASTNode() = default;
+    virtual void accept(class ASTVisitor& v) = 0;
 };
 
 struct ProgramNode : ASTNode {
-    std::vector<ASTNode*> statements;
-    ~ProgramNode() {
-        for (auto* stmt : statements) delete stmt;
-    }
+    std::vector<std::unique_ptr<ASTNode>> statements;
+    void accept(class ASTVisitor& v) override;
 };
 
 struct ValNode : ASTNode {
     std::string name;
     std::string type;
-    ASTNode* expr = nullptr; // For arithmetic expressions
-    std::string value; // For backward compatibility
-    ~ValNode() { delete expr; }
+    std::unique_ptr<ASTNode> expr;
+    std::string value;
+    void accept(class ASTVisitor& v) override;
 };
 
 struct SayNode : ASTNode {
     std::string message;
+    void accept(class ASTVisitor& v) override;
 };
 
 struct LoopNode : ASTNode {
     std::string varName;
     std::string from;
     std::string to;
-    std::vector<ASTNode*> body;
-    ~LoopNode() {
-        for (auto* stmt : body) delete stmt;
-    }
+    std::vector<std::unique_ptr<ASTNode>> body;
+    void accept(class ASTVisitor& v) override;
 };
 
 struct IfNode : ASTNode {
     std::string conditionVar;
-    std::vector<ASTNode*> thenBranch;
-    std::vector<ASTNode*> elseBranch;
-    ~IfNode() {
-        for (auto* stmt : thenBranch) delete stmt;
-        for (auto* stmt : elseBranch) delete stmt;
-    }
+    std::vector<std::unique_ptr<ASTNode>> thenBranch;
+    std::vector<std::unique_ptr<ASTNode>> elseBranch;
+    void accept(class ASTVisitor& v) override;
 };
 
 struct FnNode : ASTNode {
     std::string name;
-    std::vector<ASTNode*> body;
-    ~FnNode() {
-        for (auto* stmt : body) delete stmt;
-    }
+    std::vector<std::unique_ptr<ASTNode>> body;
+    void accept(class ASTVisitor& v) override;
 };
 
 // Arithmetic expression nodes
@@ -189,32 +183,53 @@ struct ExprNode : ASTNode {};
 
 struct NumberNode : ExprNode {
     std::string value;
+    void accept(class ASTVisitor& v) override;
 };
 
 struct VarNode : ExprNode {
     std::string name;
+    void accept(class ASTVisitor& v) override;
 };
 
 struct BinaryOpNode : ExprNode {
     BinOp op;
-    ExprNode* left;
-    ExprNode* right;
-    BinaryOpNode(BinOp op, ExprNode* l, ExprNode* r) : op(op), left(l), right(r) {}
-    ~BinaryOpNode() { delete left; delete right; }
+    std::unique_ptr<ExprNode> left;
+    std::unique_ptr<ExprNode> right;
+    BinaryOpNode(BinOp op, std::unique_ptr<ExprNode> l, std::unique_ptr<ExprNode> r)
+        : op(op), left(std::move(l)), right(std::move(r)) {}
+    void accept(class ASTVisitor& v) override;
 };
+
+// === AST Visitor (for codegen, analysis, etc.) ===
+class ASTVisitor {
+public:
+    virtual void visit(ProgramNode&) = 0;
+    virtual void visit(ValNode&) = 0;
+    virtual void visit(SayNode&) = 0;
+    virtual void visit(LoopNode&) = 0;
+    virtual void visit(IfNode&) = 0;
+    virtual void visit(FnNode&) = 0;
+    virtual void visit(NumberNode&) = 0;
+    virtual void visit(VarNode&) = 0;
+    virtual void visit(BinaryOpNode&) = 0;
+    virtual ~ASTVisitor() = default;
+};
+
+void ProgramNode::accept(ASTVisitor& v) { v.visit(*this); }
+void ValNode::accept(ASTVisitor& v) { v.visit(*this); }
+void SayNode::accept(ASTVisitor& v) { v.visit(*this); }
+void LoopNode::accept(ASTVisitor& v) { v.visit(*this); }
+void IfNode::accept(ASTVisitor& v) { v.visit(*this); }
+void FnNode::accept(ASTVisitor& v) { v.visit(*this); }
+void NumberNode::accept(ASTVisitor& v) { v.visit(*this); }
+void VarNode::accept(ASTVisitor& v) { v.visit(*this); }
+void BinaryOpNode::accept(ASTVisitor& v) { v.visit(*this); }
 
 // === Parser ===
 class Parser {
 public:
     explicit Parser(const std::vector<Token>& tokens) : tokens(tokens), current(0) {}
-    ProgramNode* parse() {
-        ProgramNode* program = new ProgramNode();
-        while (!isAtEnd()) {
-            ASTNode* stmt = parseStatement();
-            if (stmt) program->statements.push_back(stmt);
-        }
-        return program;
-    }
+    std::unique_ptr<ProgramNode> parse();
 
 private:
     std::vector<Token> tokens;
@@ -231,173 +246,187 @@ private:
     }
     bool isAtEnd() { return peek().type == TokenKind::END_OF_FILE; }
 
-    ASTNode* parseStatement() {
-        if (match("val")) return parseVal();
-        if (match("say")) return parseSay();
-        if (match("loop")) return parseLoop();
-        if (match("when")) return parseIf();
-        if (match("fn")) return parseFn();
-        advance(); // skip unknown
-        return nullptr;
-    }
-    ASTNode* parseVal() {
-        advance(); // 'val'
-        std::string name = advance().value;
-        consume(":", "Expected ':' after val name");
-        std::string type = advance().value;
-        consume("=", "Expected '=' after val type");
-        ASTNode* expr = parseExpression();
-        ValNode* node = new ValNode();
-        node->name = name;
-        node->type = type;
-        node->expr = expr;
-        if (auto num = dynamic_cast<NumberNode*>(expr)) node->value = num->value;
-        else if (auto var = dynamic_cast<VarNode*>(expr)) node->value = var->name;
-        return node;
-    }
-    ASTNode* parseSay() {
-        advance(); // 'say'
-        std::string msg = advance().value;
-        SayNode* node = new SayNode();
-        node->message = msg;
-        return node;
-    }
-    ASTNode* parseLoop() {
-        advance(); // 'loop'
-        std::string varName = advance().value;
-        consume("from", "Expected 'from' in loop");
-        std::string from = advance().value;
-        consume("to", "Expected 'to' in loop");
-        std::string to = advance().value;
-        LoopNode* node = new LoopNode();
-        node->varName = varName;
-        node->from = from;
-        node->to = to;
-        consume("{", "Expected '{' to start loop body");
-        while (!match("}")) {
-            node->body.push_back(parseStatement());
-        }
-        consume("}", "Expected '}' to end loop body");
-        return node;
-    }
-    ASTNode* parseIf() {
-        advance(); // 'when'
-        std::string cond = advance().value;
-        consume("{", "Expected '{' after condition");
-        auto* node = new IfNode();
-        node->conditionVar = cond;
-        while (!match("}")) node->thenBranch.push_back(parseStatement());
-        consume("}", "Expected '}' after then block");
-        if (match("else")) {
-            advance();
-            consume("{", "Expected '{' after else");
-            while (!match("}")) node->elseBranch.push_back(parseStatement());
-            consume("}", "Expected '}' after else block");
-        }
-        return node;
-    }
-    ASTNode* parseFn() {
-        advance(); // 'fn'
-        std::string name = advance().value;
-        consume("{", "Expected '{' after fn name");
-        auto* node = new FnNode();
-        node->name = name;
-        while (!match("}")) node->body.push_back(parseStatement());
-        consume("}", "Expected '}' after fn body");
-        return node;
-    }
-
-    // --- Arithmetic Expression Parsing (very basic, left-to-right, + - * /) ---
-    ExprNode* parseExpression() {
-        ExprNode* left = parsePrimary();
-        while (match("+") || match("-") || match("*") || match("/")) {
-            std::string op = advance().value;
-            ExprNode* right = parsePrimary();
-            BinOp binop = BinOp::Add;
-            if (op == "+") binop = BinOp::Add;
-            else if (op == "-") binop = BinOp::Sub;
-            else if (op == "*") binop = BinOp::Mul;
-            else if (op == "/") binop = BinOp::Div;
-            left = new BinaryOpNode(binop, left, right);
-        }
-        return left;
-    }
-    ExprNode* parsePrimary() {
-        Token t = advance();
-        if (t.type == TokenKind::NUMBER) {
-            auto* node = new NumberNode();
-            node->value = t.value;
-            return node;
-        } else if (t.type == TokenKind::IDENTIFIER) {
-            auto* node = new VarNode();
-            node->name = t.value;
-            return node;
-        } else {
-            std::cerr << "Parse error: Expected number or identifier in expression at line " << t.line << "\n";
-            std::exit(1);
-        }
-    }
+    std::unique_ptr<ASTNode> parseStatement();
+    std::unique_ptr<ASTNode> parseVal();
+    std::unique_ptr<ASTNode> parseSay();
+    std::unique_ptr<ASTNode> parseLoop();
+    std::unique_ptr<ASTNode> parseIf();
+    std::unique_ptr<ASTNode> parseFn();
+    std::unique_ptr<ExprNode> parseExpression();
+    std::unique_ptr<ExprNode> parsePrimary();
 };
 
-// === Code Generator ===
-class CodeGenerator {
+std::unique_ptr<ProgramNode> Parser::parse() {
+    auto program = std::make_unique<ProgramNode>();
+    while (!isAtEnd()) {
+        auto stmt = parseStatement();
+        if (stmt) program->statements.push_back(std::move(stmt));
+    }
+    return program;
+}
+
+std::unique_ptr<ASTNode> Parser::parseStatement() {
+    if (match("val")) return parseVal();
+    if (match("say")) return parseSay();
+    if (match("loop")) return parseLoop();
+    if (match("when")) return parseIf();
+    if (match("fn")) return parseFn();
+    advance(); // skip unknown
+    return nullptr;
+}
+std::unique_ptr<ASTNode> Parser::parseVal() {
+    advance(); // 'val'
+    std::string name = advance().value;
+    consume(":", "Expected ':' after val name");
+    std::string type = advance().value;
+    consume("=", "Expected '=' after val type");
+    auto expr = parseExpression();
+    auto node = std::make_unique<ValNode>();
+    node->name = name;
+    node->type = type;
+    node->expr = std::move(expr);
+    if (auto num = dynamic_cast<NumberNode*>(node->expr.get())) node->value = num->value;
+    else if (auto var = dynamic_cast<VarNode*>(node->expr.get())) node->value = var->name;
+    return node;
+}
+std::unique_ptr<ASTNode> Parser::parseSay() {
+    advance(); // 'say'
+    std::string msg = advance().value;
+    auto node = std::make_unique<SayNode>();
+    node->message = msg;
+    return node;
+}
+std::unique_ptr<ASTNode> Parser::parseLoop() {
+    advance(); // 'loop'
+    std::string varName = advance().value;
+    consume("from", "Expected 'from' in loop");
+    std::string from = advance().value;
+    consume("to", "Expected 'to' in loop");
+    std::string to = advance().value;
+    auto node = std::make_unique<LoopNode>();
+    node->varName = varName;
+    node->from = from;
+    node->to = to;
+    consume("{", "Expected '{' to start loop body");
+    while (!match("}")) {
+        node->body.push_back(parseStatement());
+    }
+    consume("}", "Expected '}' to end loop body");
+    return node;
+}
+std::unique_ptr<ASTNode> Parser::parseIf() {
+    advance(); // 'when'
+    std::string cond = advance().value;
+    consume("{", "Expected '{' after condition");
+    auto node = std::make_unique<IfNode>();
+    node->conditionVar = cond;
+    while (!match("}")) node->thenBranch.push_back(parseStatement());
+    consume("}", "Expected '}' after then block");
+    if (match("else")) {
+        advance();
+        consume("{", "Expected '{' after else");
+        while (!match("}")) node->elseBranch.push_back(parseStatement());
+        consume("}", "Expected '}' after else block");
+    }
+    return node;
+}
+std::unique_ptr<ASTNode> Parser::parseFn() {
+    advance(); // 'fn'
+    std::string name = advance().value;
+    consume("{", "Expected '{' after fn name");
+    auto node = std::make_unique<FnNode>();
+    node->name = name;
+    while (!match("}")) node->body.push_back(parseStatement());
+    consume("}", "Expected '}' after fn body");
+    return node;
+}
+std::unique_ptr<ExprNode> Parser::parseExpression() {
+    auto left = parsePrimary();
+    while (match("+") || match("-") || match("*") || match("/")) {
+        std::string op = advance().value;
+        auto right = parsePrimary();
+        BinOp binop = BinOp::Add;
+        if (op == "+") binop = BinOp::Add;
+        else if (op == "-") binop = BinOp::Sub;
+        else if (op == "*") binop = BinOp::Mul;
+        else if (op == "/") binop = BinOp::Div;
+        left = std::make_unique<BinaryOpNode>(binop, std::move(left), std::move(right));
+    }
+    return left;
+}
+std::unique_ptr<ExprNode> Parser::parsePrimary() {
+    Token t = advance();
+    if (t.type == TokenKind::NUMBER) {
+        auto node = std::make_unique<NumberNode>();
+        node->value = t.value;
+        return node;
+    } else if (t.type == TokenKind::IDENTIFIER) {
+        auto node = std::make_unique<VarNode>();
+        node->name = t.value;
+        return node;
+    } else {
+        std::cerr << "Parse error: Expected number or identifier in expression at line " << t.line << "\n";
+        std::exit(1);
+    }
+}
+
+// === Code Generator (IR) ===
+class CodeGenVisitor : public ASTVisitor {
 public:
-    void generate(ProgramNode* program) {
+    void visit(ProgramNode& node) override {
         std::cout << "[CodeGen] IR:\n";
-        for (auto* stmt : program->statements) {
-            generateNode(stmt, 0);
+        for (auto& stmt : node.statements) {
+            stmt->accept(*this);
         }
     }
-private:
-    void generateNode(ASTNode* stmt, int indent) {
-        std::string ind(indent, ' ');
-        if (auto* val = dynamic_cast<ValNode*>(stmt)) {
-            std::cout << ind << "val " << val->name << ":" << val->type << " = ";
-            if (val->expr) printExpr(val->expr);
-            else std::cout << val->value;
+    void visit(ValNode& node) override {
+        std::cout << "val " << node.name << ":" << node.type << " = ";
+        if (node.expr) node.expr->accept(*this);
+        else std::cout << node.value;
+        std::cout << "\n";
+    }
+    void visit(SayNode& node) override {
+        std::cout << "say \"" << node.message << "\"\n";
+    }
+    void visit(LoopNode& node) override {
+        std::cout << "loop " << node.varName << " from " << node.from << " to " << node.to << " {\n";
+        for (auto& stmt : node.body) stmt->accept(*this);
+        std::cout << "}\n";
+    }
+    void visit(IfNode& node) override {
+        std::cout << "when " << node.conditionVar << " {\n";
+        for (auto& s : node.thenBranch) s->accept(*this);
+        std::cout << "}";
+        if (!node.elseBranch.empty()) {
+            std::cout << " else {\n";
+            for (auto& s : node.elseBranch) s->accept(*this);
+            std::cout << "}\n";
+        } else {
             std::cout << "\n";
-        } else if (auto* say = dynamic_cast<SayNode*>(stmt)) {
-            std::cout << ind << "say \"" << say->message << "\"\n";
-        } else if (auto* loop = dynamic_cast<LoopNode*>(stmt)) {
-            std::cout << ind << "loop " << loop->varName << " from " << loop->from << " to " << loop->to << " {\n";
-            for (auto* bodyStmt : loop->body) {
-                generateNode(bodyStmt, indent + 2);
-            }
-            std::cout << ind << "}\n";
-        } else if (auto* ifn = dynamic_cast<IfNode*>(stmt)) {
-            std::cout << ind << "when " << ifn->conditionVar << " {\n";
-            for (auto* s : ifn->thenBranch) generateNode(s, indent + 2);
-            std::cout << ind << "}";
-            if (!ifn->elseBranch.empty()) {
-                std::cout << " else {\n";
-                for (auto* s : ifn->elseBranch) generateNode(s, indent + 2);
-                std::cout << ind << "}\n";
-            } else {
-                std::cout << "\n";
-            }
-        } else if (auto* fn = dynamic_cast<FnNode*>(stmt)) {
-            std::cout << ind << "fn " << fn->name << " {\n";
-            for (auto* bodyStmt : fn->body) generateNode(bodyStmt, indent + 2);
-            std::cout << ind << "}\n";
         }
     }
-    void printExpr(ASTNode* expr) {
-        if (auto* num = dynamic_cast<NumberNode*>(expr)) {
-            std::cout << num->value;
-        } else if (auto* var = dynamic_cast<VarNode*>(expr)) {
-            std::cout << var->name;
-        } else if (auto* bin = dynamic_cast<BinaryOpNode*>(expr)) {
-            std::cout << "(";
-            printExpr(bin->left);
-            switch (bin->op) {
-                case BinOp::Add: std::cout << " + "; break;
-                case BinOp::Sub: std::cout << " - "; break;
-                case BinOp::Mul: std::cout << " * "; break;
-                case BinOp::Div: std::cout << " / "; break;
-            }
-            printExpr(bin->right);
-            std::cout << ")";
+    void visit(FnNode& node) override {
+        std::cout << "fn " << node.name << " {\n";
+        for (auto& stmt : node.body) stmt->accept(*this);
+        std::cout << "}\n";
+    }
+    void visit(NumberNode& node) override {
+        std::cout << node.value;
+    }
+    void visit(VarNode& node) override {
+        std::cout << node.name;
+    }
+    void visit(BinaryOpNode& node) override {
+        std::cout << "(";
+        node.left->accept(*this);
+        switch (node.op) {
+            case BinOp::Add: std::cout << " + "; break;
+            case BinOp::Sub: std::cout << " - "; break;
+            case BinOp::Mul: std::cout << " * "; break;
+            case BinOp::Div: std::cout << " / "; break;
         }
+        node.right->accept(*this);
+        std::cout << ")";
     }
 };
 
@@ -409,8 +438,8 @@ public:
         out << "section .data\n";
         int strId = 0;
         std::vector<std::string> strLabels;
-        for (auto* stmt : program->statements) {
-            if (auto* say = dynamic_cast<SayNode*>(stmt)) {
+        for (const auto& stmt : program->statements) {
+            if (auto* say = dynamic_cast<SayNode*>(stmt.get())) {
                 std::string label = "str" + std::to_string(strId++);
                 out << label << " db \"" << say->message << "\",10,0\n";
                 strLabels.push_back(label);
@@ -420,8 +449,8 @@ public:
         out << "global _start\n";
         out << "_start:\n";
         strId = 0;
-        for (auto* stmt : program->statements) {
-            if (auto* say = dynamic_cast<SayNode*>(stmt)) {
+        for (const auto& stmt : program->statements) {
+            if (auto* say = dynamic_cast<SayNode*>(stmt.get())) {
                 std::string label = strLabels[strId++];
 #ifdef _WIN32
                 out << "    ; Windows: Output not implemented in NASM stub\n";
@@ -763,13 +792,12 @@ int main(int argc, char* argv[]) {
     Lexer lexer(source);
     auto tokens = lexer.tokenize();
     Parser parser(tokens);
-    ProgramNode* program = parser.parse();
-    CodeGenerator generator;
-    generator.generate(program);
+    auto program = parser.parse();
+    CodeGenVisitor generator;
+    program->accept(generator);
     NasmCodegen asmgen;
-    asmgen.compileToNasm(program);
+    asmgen.compileToNasm(program.get());
     CapsuleVM vm;
     vm.execute("output.asm");
-    delete program;
     return 0;
 }
