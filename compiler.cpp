@@ -345,8 +345,6 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-std::cout << "[Debug] Reached main()\n";
-
 // === Remove C++17/C++20/LLVM/JSON/Filesystem/Structured Bindings/quarterpkg.hpp ===
 // All C++17+ features, unavailable headers, and advanced constructs have been removed or replaced with C++14-compatible stubs.
 
