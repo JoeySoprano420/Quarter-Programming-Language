@@ -95,11 +95,14 @@ std::vector<Token> Lexer::tokenize() {
         if (peek() == '\0') break;
         if (std::isalpha(peek()) || peek() == '_') {
             tokens.push_back(readWord());
-        } else if (std::isdigit(peek())) {
+        }
+        else if (std::isdigit(peek())) {
             tokens.push_back(readNumber());
-        } else if (peek() == '"') {
+        }
+        else if (peek() == '"') {
             tokens.push_back(readString());
-        } else {
+        }
+        else {
             tokens.push_back(readSymbol());
         }
     }
@@ -114,6 +117,9 @@ struct ASTNode {
 
 struct ProgramNode : ASTNode {
     std::vector<ASTNode*> statements;
+    ~ProgramNode() {
+        for (auto* stmt : statements) delete stmt;
+    }
 };
 
 struct ValNode : ASTNode {
@@ -136,6 +142,9 @@ struct LoopNode : ASTNode {
     std::string from;
     std::string to;
     std::vector<ASTNode*> body;
+    ~LoopNode() {
+        for (auto* stmt : body) delete stmt;
+    }
 };
 
 struct ProcedureNode : ASTNode {
@@ -143,6 +152,9 @@ struct ProcedureNode : ASTNode {
     std::vector<std::pair<std::string, std::string>> params; // (name, type)
     std::vector<ASTNode*> body;
     std::string returnType;
+    ~ProcedureNode() {
+        for (auto* stmt : body) delete stmt;
+    }
 };
 
 struct ReturnNode : ASTNode {
@@ -161,7 +173,14 @@ struct ThreadNode : ASTNode {
 class Parser {
 public:
     explicit Parser(const std::vector<Token>& tokens) : tokens(tokens), current(0) {}
-    ProgramNode* parse() { return nullptr; } // Stub
+    ProgramNode* parse() {
+        ProgramNode* program = new ProgramNode();
+        while (!isAtEnd()) {
+            ASTNode* stmt = parseStatement();
+            if (stmt) program->statements.push_back(stmt);
+        }
+        return program;
+    }
 
 private:
     std::vector<Token> tokens;
@@ -169,37 +188,142 @@ private:
     Token peek() { return tokens[current]; }
     Token advance() { return tokens[current++]; }
     bool match(const std::string& value) { return peek().value == value; }
-    void consume(const std::string& expected, const std::string& err) {}
+    void consume(const std::string& expected, const std::string& err) {
+        if (!match(expected)) {
+            std::cerr << "Parse error: " << err << " at line " << peek().line << "\n";
+            std::exit(1);
+        }
+        advance();
+    }
     bool isAtEnd() { return peek().type == TokenType::END_OF_FILE; }
-    ASTNode* parseStatement() { return nullptr; }
-    ASTNode* parseVal() { return nullptr; }
-    ASTNode* parseSay() { return nullptr; }
-    ASTNode* parseDerive() { return nullptr; }
-    ASTNode* parseLoop() { return nullptr; }
-    ASTNode* parseProcedure() { return nullptr; }
-    ASTNode* parseReturn() { return nullptr; }
-    ASTNode* parseYield() { return nullptr; }
-    ASTNode* parseThread() { return nullptr; }
+
+    ASTNode* parseStatement() {
+        if (match("val")) return parseVal();
+        if (match("say")) return parseSay();
+        if (match("loop")) return parseLoop();
+        if (match("procedure")) return parseProcedure();
+        if (match("return")) return parseReturn();
+        if (match("yield")) return parseYield();
+        if (match("thread")) return parseThread();
+        advance(); // skip unknown
+        return nullptr;
+    }
+    ASTNode* parseVal() {
+        advance(); // 'val'
+        std::string name = advance().value;
+        consume(":", "Expected ':' after val name");
+        std::string type = advance().value;
+        consume("=", "Expected '=' after val type");
+        std::string value = advance().value;
+        ValNode* node = new ValNode();
+        node->name = name;
+        node->type = type;
+        node->value = value;
+        return node;
+    }
+    ASTNode* parseSay() {
+        advance(); // 'say'
+        std::string msg = advance().value;
+        SayNode* node = new SayNode();
+        node->message = msg;
+        return node;
+    }
+    ASTNode* parseLoop() {
+        advance(); // 'loop'
+        std::string varName = advance().value;
+        consume("from", "Expected 'from' in loop");
+        std::string from = advance().value;
+        consume("to", "Expected 'to' in loop");
+        std::string to = advance().value;
+        LoopNode* node = new LoopNode();
+        node->varName = varName;
+        node->from = from;
+        node->to = to;
+        consume("{", "Expected '{' to start loop body");
+        while (!match("}")) {
+            node->body.push_back(parseStatement());
+        }
+        consume("}", "Expected '}' to end loop body");
+        return node;
+    }
+    ASTNode* parseProcedure() {
+        advance(); // 'procedure'
+        std::string name = advance().value;
+        ProcedureNode* node = new ProcedureNode();
+        node->name = name;
+        consume("(", "Expected '(' after procedure name");
+        while (!match(")")) {
+            std::string paramName = advance().value;
+            consume(":", "Expected ':' in param");
+            std::string paramType = advance().value;
+            node->params.push_back(std::make_pair(paramName, paramType));
+            if (match(",")) advance();
+        }
+        consume(")", "Expected ')' after params");
+        if (match(":")) {
+            advance();
+            node->returnType = advance().value;
+        }
+        consume("{", "Expected '{' to start procedure body");
+        while (!match("}")) {
+            node->body.push_back(parseStatement());
+        }
+        consume("}", "Expected '}' to end procedure body");
+        return node;
+    }
+    ASTNode* parseReturn() {
+        advance(); // 'return'
+        std::string value = advance().value;
+        ReturnNode* node = new ReturnNode();
+        node->value = value;
+        return node;
+    }
+    ASTNode* parseYield() {
+        advance(); // 'yield'
+        std::string value = advance().value;
+        YieldNode* node = new YieldNode();
+        node->value = value;
+        return node;
+    }
+    ASTNode* parseThread() {
+        advance(); // 'thread'
+        std::string proc = advance().value;
+        ThreadNode* node = new ThreadNode();
+        node->procedureName = proc;
+        return node;
+    }
 };
 
 // === Code Generator ===
 class CodeGenerator {
 public:
-    void generate(ProgramNode* program) {}
+    void generate(ProgramNode* program) {
+        std::cout << "[CodeGen] Generating IR (stub)\n";
+        // Walk AST and emit IR or bytecode
+    }
 };
 
 // === NASM Codegen ===
 class NasmCodegen {
 public:
-    void compileToNasm(ProgramNode* program) {}
+    void compileToNasm(ProgramNode* program) {
+        std::cout << "[NASM] Compiling to NASM (stub)\n";
+        // Walk AST and emit NASM assembly
+    }
 };
 
 // === Capsule VM Runtime ===
 class CapsuleVM {
 public:
-    void execute(const std::string& capsulePath) {}
-    void runInteractive() {}
-    void enterDebugShell() {}
+    void execute(const std::string& capsulePath) {
+        std::cout << "[VM] Executing capsule: " << capsulePath << " (stub)\n";
+    }
+    void runInteractive() {
+        std::cout << "[VM] Interactive mode (stub)\n";
+    }
+    void enterDebugShell() {
+        std::cout << "[VM] Debug shell (stub)\n";
+    }
 
 private:
     typedef std::unordered_map<std::string, TypedValue> Scope;
@@ -222,129 +346,9 @@ private:
 class LanguageServer {
 public:
     void start() {
-        // TODO: Implement JSON-RPC over stdio or TCP for LSP
         std::cout << "[LSP] Language server started (stub)\n";
     }
-    // Add handlers for textDocument/didOpen, completion, hover, etc.
 };
 
 // === Self-hosting Compiler Entry Point ===
-class QuarterSelfHost {
-public:
-    void compile(const std::string& sourcePath) {
-        // TODO: Parse QuarterLang source, emit C++/LLVM/bytecode
-        std::cout << "[SelfHost] Compiling " << sourcePath << " (stub)\n";
-    }
-};
-
-// === WebAssembly Frontend Stub ===
-class QuarterWasmFrontend {
-public:
-    void compileToWasm(const std::string& sourcePath) {
-        // TODO: Parse and emit WASM binary/text
-        std::cout << "[WASM] Compiling to WebAssembly (stub)\n";
-    }
-};
-
-// === Scientific/ML DSL Stub ===
-class QuarterML {
-public:
-    void runScript(const std::string& script) {
-        // TODO: Integrate with BLAS/LAPACK or call Python via FFI
-        std::cout << "[ML] Running scientific script (stub)\n";
-    }
-};
-
-// === Operating System Integration Stub ===
-class QuarterOS {
-public:
-    void sysCall(const std::string& name) {
-        // TODO: Implement FFI to OS syscalls, e.g., open, read, write
-        std::cout << "[OS] System call: " << name << " (stub)\n";
-    }
-};
-
-// === Manual Memory Management Stub ===
-class QuarterMemory {
-public:
-    void* allocate(size_t bytes) {
-        // TODO: Custom allocator, pool, or arena
-        std::cout << "[Memory] Allocating " << bytes << " bytes (stub)\n";
-        return malloc(bytes);
-    }
-    void deallocate(void* ptr) {
-        std::cout << "[Memory] Deallocating memory (stub)\n";
-        free(ptr);
-    }
-};
-
-// === Zero-cost Abstractions Example ===
-template<typename T>
-class ZeroCostArray {
-    T* data;
-    size_t size_;
-public:
-    ZeroCostArray(size_t n) : data(new T[n]), size_(n) {}
-    ~ZeroCostArray() { delete[] data; }
-    T& operator[](size_t i) { return data[i]; }
-    size_t size() const { return size_; }
-    // No virtuals, no heap indirection, inlined access
-};
-
-// === Real int/float/text Memory Typing ===
-enum class MemType { INT, FLOAT, TEXT };
-struct MemCell {
-    MemType type;
-    union {
-        int i;
-        float f;
-    };
-    std::string text;
-    MemCell() : type(MemType::INT), i(0) {}
-};
-
-// === Capsule Sandboxing Stub ===
-class CapsuleSandbox {
-public:
-    void run(const std::string& capsulePath) {
-        // TODO: Use OS sandboxing (seccomp, AppContainer, chroot, etc.)
-        std::cout << "[Sandbox] Running capsule: " << capsulePath << " (stub)\n";
-    }
-};
-
-// === Main Compiler and Runner ===
-int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        std::cerr << "Usage: quarterc <source.qtr | run file.qtrcapsule | debug file.qtrcapsule>\n";
-        return 1;
-    }
-    std::string mode = argv[1];
-    if (mode == "run" && argc >= 3) {
-        CapsuleVM vm;
-        vm.execute(argv[2]);
-        return 0;
-    }
-    if (mode == "debug" && argc >= 3) {
-        CapsuleVM vm;
-        vm.execute(argv[2]);
-        vm.enterDebugShell();
-        return 0;
-    }
-    std::ifstream file(argv[1]);
-    std::string source((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-    Lexer lexer(source);
-    auto tokens = lexer.tokenize();
-    Parser parser(tokens);
-    ProgramNode* program = parser.parse();
-    CodeGenerator generator;
-    generator.generate(program);
-    NasmCodegen asmgen;
-    asmgen.compileToNasm(program);
-    CapsuleVM vm;
-    vm.execute("output.qtrcapsule");
-    return 0;
-}
-
-// === Remove C++17/C++20/LLVM/JSON/Filesystem/Structured Bindings/quarterpkg.hpp ===
-// All C++17+ features, unavailable headers, and advanced constructs have been removed or replaced with C++14-compatible stubs.
-
+class QuarterSelf;
