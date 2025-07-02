@@ -1,362 +1,250 @@
-// === Self-Hosted QuarterLang Compiler (Bootstrap) ===
-// Full feature-set: lexing, parsing, AST, bytecode IR, VM interpreter,
-// multi-threading, pipes, debug shell, NASM codegen.
+// Organized QuarterLang Compiler - C++14
+// Project Layout:
+// quarterc/
+// ├── CMakeLists.txt
+// ├── include/
+// │   ├── Token.hpp
+// │   ├── Lexer.hpp
+// │   ├── AST.hpp
+// │   ├── Parser.hpp
+// │   ├── IR.hpp
+// │   ├── Codegen.hpp
+// │   ├── VM.hpp
+// │   ├── LSP.hpp
+// │   ├── Sandbox.hpp
+// │   └── Memory.hpp
+// ├── src/
+// │   ├── main.cpp
+// │   ├── Token.cpp
+// │   ├── Lexer.cpp
+// │   ├── AST.cpp
+// │   ├── Parser.cpp
+// │   ├── IR.cpp
+// │   ├── Codegen.cpp
+// │   ├── NasmCodegen.cpp
+// │   ├── VM.cpp
+// │   ├── LSP.cpp
+// │   ├── Sandbox.cpp
+// │   └── Memory.cpp
+// └── tests/
+//     ├── lexer_tests.cpp
+//     ├── parser_tests.cpp
+//     └── vm_tests.cpp
 
-star
+//------------------------------------------------------------------------------
+// include/Token.hpp
+//------------------------------------------------------------------------------
+#pragma once
+#include <string>
+enum class TokenType { KEYWORD, IDENTIFIER, NUMBER, STRING, SYMBOL, DG, END_OF_FILE };
+struct Token {
+    TokenType type;
+    std::string value;
+    int line;
+};
 
-  #===============================================================================
-  # I. UTILITIES & I/O
-  #===============================================================================
-  
-  procedure read_file input path as text
-    # Read entire file into a string
-    return file.read(path)
-  end
+//------------------------------------------------------------------------------
+// include/Lexer.hpp
+//------------------------------------------------------------------------------
+#pragma once
+#include "Token.hpp"
+#include <vector>
+#include <string>
 
-  procedure write_file input path as text, content as text
-    # Write string content to file
-    file.write(path, content)
-  end
+class Lexer {
+public:
+    explicit Lexer(const std::string& src);
+    std::vector<Token> tokenize();
 
-  procedure system_exec input cmd as text
-    # Execute external command
-    return system(cmd)
-  end
+private:
+    std::string source;
+    size_t pos;
+    int line;
+    static const std::unordered_set<std::string> keywords;
+    char peek() const;
+    char advance();
+    void skipWhitespace();
+    void skipComment();
+    Token readWord();
+    Token readNumber();
+    Token readString();
+    Token readSymbol();
+};
 
-  #===============================================================================
-  # II. LEXER: TOKENIZATION
-  #===============================================================================
-  
-  procedure lex input src as text
-    val tokens as list<nest> : []      # List of token objects
-    val pos    as int         : 0     # Current index in src
-    val len    as int         : text.len(src)
+//------------------------------------------------------------------------------
+// include/AST.hpp
+//------------------------------------------------------------------------------
+#pragma once
+#include <vector>
+#include <string>
 
-    while pos < len
-      val ch as text : text.substr(src,pos,1)
+struct ASTNode { virtual ~ASTNode() = default; };
+struct ProgramNode : ASTNode { std::vector<ASTNode*> statements; };
+struct ValNode : ASTNode { std::string name,type,value; };
+struct SayNode : ASTNode { std::string message; };
+struct LoopNode : ASTNode { std::string varName,from,to; std::vector<ASTNode*> body; };
+struct ProcedureNode : ASTNode { std::string name; std::vector<std::pair<std::string,std::string>> params; std::vector<ASTNode*> body; std::string returnType; };
+// ... other AST nodes
 
-      #---- Skip whitespace & comments -------------------------------------------
-      when text.match(ch,"[ \t\r\n]")
-        if ch == "\n" then tokens.append({type:"NEWLINE"}) end
-        pos += 1
-      elsewhen ch == '#'
-        # Skip until end-of-line
-        while pos < len and text.substr(src,pos,1) != "\n" pos += 1 stop
+//------------------------------------------------------------------------------
+// include/Parser.hpp
+//------------------------------------------------------------------------------
+#pragma once
+#include "Token.hpp"
+#include "AST.hpp"
+#include <vector>
 
-      #---- Identifiers & Keywords ------------------------------------------------
-      elsewhen text.match(ch,"[A-Za-z_]")
-        val start as int : pos
-        while pos < len and text.match(text.substr(src,pos,1),"[A-Za-z0-9_]") pos += 1 stop
-        val w     as text : text.substr(src,start,pos-start)
-        val ttype as text : keywords.contains(w) ? "KEYWORD" : "IDENT"
-        tokens.append({type:ttype, value:w})
+class Parser {
+public:
+    explicit Parser(const std::vector<Token>& tokens);
+    ProgramNode* parse();
 
-      #---- Numbers ---------------------------------------------------------------
-      elsewhen text.match(ch,"[0-9]")
-        val start as int : pos
-        while pos < len and text.match(text.substr(src,pos,1),"[0-9]") pos += 1 stop
-        tokens.append({type:"NUMBER", value:text.substr(src,start,pos-start)})
+private:
+    const std::vector<Token>& tokens;
+    size_t current;
+    Token peek() const;
+    Token advance();
+    bool match(const std::string&);
+    void consume(const std::string&, const std::string&);
+    bool isAtEnd() const;
+    ASTNode* parseStatement();
+    // parseVal, parseSay, parseLoop, parseProcedure, etc.
+};
 
-      #---- String Literals -------------------------------------------------------
-      elsewhen ch == '"'
-        pos += 1  # Skip opening quote
-        val start as int : pos
-        while pos < len and text.substr(src,pos,1) != '"' pos += 1 stop
-        tokens.append({type:"STRING", value:text.substr(src,start,pos-start)})
-        pos += 1  # Skip closing quote
+//------------------------------------------------------------------------------
+// include/IR.hpp
+//------------------------------------------------------------------------------
+#pragma once
+#include <vector>
+#include <string>
+struct IRInstr { std::string op; std::vector<std::string> args; };
+std::vector<IRInstr> optimizeIR(const std::vector<IRInstr>&);
 
-      #---- Symbols ----------------------------------------------------------------
-      else
-        tokens.append({type:"SYMBOL", value:ch})
-        pos += 1
-      end
-    stop
+//------------------------------------------------------------------------------
+// include/Codegen.hpp
+//------------------------------------------------------------------------------
+#pragma once
+#include "IR.hpp"
+#include <vector>
+#include <string>
+class Codegen {
+public:
+    void generate(const std::vector<IRInstr>&);
+};
 
-    tokens.append({type:"EOF"})
-    return tokens
-  end
+//------------------------------------------------------------------------------
+// include/NasmCodegen.hpp
+//------------------------------------------------------------------------------
+#pragma once
+#include "IR.hpp"
+#include <string>
+class NasmCodegen {
+public:
+    std::string emit(const std::vector<IRInstr>&);
+};
 
-  #===============================================================================
-  # III. PARSER: AST CONSTRUCTION
-  #===============================================================================
-  
-  procedure parse input tokens as list<nest>
-    val idx as int : 0
+//------------------------------------------------------------------------------
+// include/VM.hpp
+//------------------------------------------------------------------------------
+#pragma once
+#include "IR.hpp"
+#include <map>
+#include <stack>
+#include <string>
+class VM {
+public:
+    void execute(const std::vector<IRInstr>&);
+    void debugShell(const std::vector<IRInstr>&);
 
-    procedure peek  return tokens[idx]              end
-    procedure advance idx += 1; return tokens[idx-1] end
+private:
+    struct Thread { size_t ip; std::vector<std::string> stack; std::map<std::string,std::string> locals; };
+    std::vector<Thread> threads;
+    std::map<std::string,bool> locks;
+    std::map<std::string,std::vector<std::string>> pipes;
+    std::map<std::string,int> labels;
+    void executeInstr(Thread&, const IRInstr&);
+    void computeBinary(Thread&, const std::string&);
+    void spawnThread(const std::string&);
+    void acquireLock(const std::string&);
+    void releaseLock(const std::string&);
+    void sendPipe(const std::string&, const std::string&);
+};
 
-    procedure parseProgram
-      val ast as list<nest> : []
-      while peek().type != "EOF"
-        ast.append(parseStmt())
-      stop
-      return ast
-    end
+//------------------------------------------------------------------------------
+// include/LSP.hpp
+//------------------------------------------------------------------------------
+#pragma once
+class LanguageServer {
+public:
+    void start();
+};
 
-    procedure parseStmt
-      val t as nest : peek()
+//------------------------------------------------------------------------------
+// include/Sandbox.hpp
+//------------------------------------------------------------------------------
+#pragma once
+#include <string>
+class CapsuleSandbox {
+public:
+    void run(const std::string&);
+};
 
-      when t.value == "say"
-        advance()
-        val msg as nest : advance()
-        return {node:"Say", msg:msg.value}
+//------------------------------------------------------------------------------
+// include/Memory.hpp
+//------------------------------------------------------------------------------
+#pragma once
+#include <cstddef>
+class MemoryManager {
+public:
+    void* alloc(size_t);
+    void  free(void*);
+};
 
-      elsewhen t.value in ["val","var"]
-        val mut   as text : advance().value
-        val name  as nest : advance()
-        advance()  # skip ':'
-        val lit   as nest : advance()
-        return {node:"Val", mut:mut, name:name.value, value:lit.value}
+//------------------------------------------------------------------------------
+// src/main.cpp
+//------------------------------------------------------------------------------
+#include "Lexer.hpp"
+#include "Parser.hpp"
+#include "IR.hpp"
+#include "Codegen.hpp"
+#include "NasmCodegen.hpp"
+#include "VM.hpp"
+#include "LanguageServer.hpp"
+#include "Sandbox.hpp"
+#include "Memory.hpp"
+#include <iostream>
+#include <fstream>
 
-      elsewhen t.value == "loop"
-        advance()
-        val varName as nest : advance()
-        advance()  # 'from'
-        val fromVal as nest : advance()
-        advance()  # 'to'
-        val toVal   as nest : advance()
-        val body    as list<nest> : []
-        while peek().value != "stop"
-          body.append(parseStmt())
-        stop
-        advance()  # consume 'stop'
-        return {node:"Loop", var:varName.value, from:fromVal.value, to:toVal.value, body:body}
+int main(int argc, char** argv) {
+    if (argc < 2) { std::cerr<<"Usage: quarterc <build|run|debug> [file]"; return 1; }
+    std::string mode = argv[1];
+    if (mode=="build") {
+        std::ifstream in(argv[2]); std::string src((std::istreambuf_iterator<char>(in)),{});
+        Lexer lx(src);
+        auto toks = lx.tokenize();
+        Parser ps(toks);
+        auto ast = ps.parse();
+        auto ir  = optimizeIR(/* genIR(ast) */{});
+        Codegen cg; cg.generate(ir);
+        NasmCodegen ng; auto asmText=ng.emit(ir);
+        std::ofstream("out.asm")<<asmText;
+    } else if (mode=="run"||mode=="debug") {
+        // load IR from file or regenerate
+        VM vm;
+        std::vector<IRInstr> ir;
+        vm.execute(ir);
+        if (mode=="debug") vm.debugShell(ir);
+    }
+    return 0;
+}
 
-      elsewhen t.value == "procedure"
-        advance()
-        val pname  as nest : advance()
-        val params as list<nest> : []
-        if peek().value == "(" then
-          advance()
-          while peek().value != ")"
-            val p as nest : advance()
-            if peek().value == ":" advance() end
-            val ty as nest : advance()
-            params.append({name:p.value, type:ty.value})
-            if peek().value == "," advance() end
-          stop
-          advance()  # consume ')'
-        end
-        val pbody as list<nest> : []
-        while peek().value != "end"
-          pbody.append(parseStmt())
-        stop
-        advance()  # consume 'end'
-        return {node:"Proc", name:pname.value, params:params, body:pbody}
-
-      elsewhen t.value == "return"
-        advance()
-        val rv as nest : advance()
-        return {node:"Return", value:rv.value}
-
-      elsewhen t.value == "yield"
-        advance()
-        val yv as nest : advance()
-        return {node:"Yield", value:yv.value}
-
-      elsewhen t.value == "spawn"
-        advance()
-        val proc as nest : advance()
-        return {node:"Spawn", proc:proc.value}
-
-      elsewhen t.value == "lock"
-        advance()
-        val name as nest : advance()
-        return {node:"Lock", name:name.value}
-
-      elsewhen t.value == "unlock"
-        advance()
-        val name as nest : advance()
-        return {node:"Unlock", name:name.value}
-
-      elsewhen t.value == "pipe"
-        advance()
-        val src as nest : advance()
-        advance()  # skip 'to'
-        val dst as nest : advance()
-        return {node:"Pipe", src:src.value, dst:dst.value}
-
-      else
-        advance()
-        return {node:"Noop"}
-      end
-    end
-
-    return parseProgram()
-  end
-
-  #===============================================================================
-  # IV. BYTECODE IR & OPTIMIZER
-  #===============================================================================
-  
-  procedure genIR input ast as list<nest>
-    val ir        as list<nest> : []
-    val labelCount as int       : 0
-
-    for node in ast
-      when node.node == "Val"
-        ir.append({op:"PUSH_CONST", args:[node.value]})
-        ir.append({op:"STORE",      args:[node.name]})
-
-      elsewhen node.node == "Say"
-        ir.append({op:"LOAD_STR",   args:[node.msg]})
-        ir.append({op:"PRINT",      args:[]})
-
-      elsewhen node.node == "Loop"
-        ir.extend(genLoop(node))
-
-      elsewhen node.node == "Proc"
-        ir.append({op:"LABEL", args:[node.name]})
-        for p in node.params: ir.append({op:"ARG", args:[p.name]}) stop
-        for s in node.body:   ir.extend(genIR([s]))        stop
-        ir.append({op:"RET", args:[]})
-
-      elsewhen node.node == "Spawn"
-        ir.append({op:"SPAWN", args:[node.proc]})
-
-      elsewhen node.node == "Lock"
-        ir.append({op:"LOCK", args:[node.name]})
-
-      elsewhen node.node == "Unlock"
-        ir.append({op:"UNLOCK", args:[node.name]})
-
-      elsewhen node.node == "Pipe"
-        ir.append({op:"PIPE", args:[node.src, node.dst]})
-      end
-    done
-
-    return optimizeIR(ir)
-  end
-
-  procedure optimizeIR input ir as list<nest>
-    # PASS 1: Constant Folding
-    # PASS 2: Dead Code Elimination
-    return ir
-  end
-
-  #===============================================================================
-  # V. VM INTERPRETER & MULTI-THREADING / PIPES
-  #===============================================================================
-  
-  procedure runVM input ir as list<nest>
-    val threads  as list<nest>         : []
-    val globals  as map<text,text>     : {}
-    val locks    as map<text,bool>     : {}
-    val pipes    as map<text,list>     : {}
-    val labels   as map<text,int>      : {}
-
-    # Build label lookup
-    for i in 0..ir.len-1: when ir[i].op=="LABEL" labels[ir[i].args[0]] = i end
-
-    # Spawn main thread
-    threads.append({id:0, ip:0, stack:[], locals:{}})
-
-    # Cooperative scheduling
-    while threads.notEmpty
-      for t in threads: execute(t, ir, labels, globals, locks, pipes) done
-    stop
-  end
-
-  procedure execute input th as nest, ir, labels, g, locks, pipes
-    val instr as nest : ir[th.ip]
-    when instr.op == "PUSH"    th.stack.append(instr.args[0])
-    when instr.op == "STORE"   g[instr.args[0]] = th.stack.pop()
-    when instr.op == "LOAD"    th.stack.append(g[instr.args[0]])
-    when instr.op == "LOADSTR" say instr.args[0]
-    when instr.op == "PRINT"   say th.stack.pop()
-    when instr.op in ["ADD","SUB","MUL","DIV"] computeBinary(th, instr.op)
-    when instr.op == "SPAWN"   spawnThread(instr.args[0])
-    when instr.op == "LOCK"    acquireLock(instr.args[0])
-    when instr.op == "UNLOCK"  releaseLock(instr.args[0])
-    when instr.op == "PIPE"    sendPipe(instr.args[0], instr.args[1])
-    when instr.op == "JMP"     th.ip = labels[instr.args[0]]; return
-    when instr.op == "JZ"
-      val v as text : th.stack.pop()
-      if v == "0" then th.ip = labels[instr.args[0]]; return end
-    when instr.op == "LABEL"   # No operation
-    else say "Unknown op: " + instr.op
-    end
-
-    th.ip += 1
-  end
-
-  #------------------------------------------
-  # Helpers: Binary Ops, Thread Spawning, Locks & Pipes
-  #------------------------------------------
-  procedure computeBinary input th as nest, op as text
-    val b as int : th.stack.pop()
-    val a as int : th.stack.pop()
-    val r as int :
-      when op=="ADD" return a + b
-      elsewhen op=="SUB" return a - b
-      elsewhen op=="MUL" return a * b
-      elsewhen op=="DIV" return a / b
-    end
-    th.stack.append(r.str)
-  end
-
-  procedure spawnThread input procName as text
-    val newId as int        : threads.len
-    val startIp as int      : labels[procName]
-    threads.append({id:newId, ip:startIp, stack:[], locals:{}})
-  end
-
-  procedure acquireLock input name as text
-    while locks[name] == true do yield end
-    locks[name] = true
-  end
-
-  procedure releaseLock input name as text
-    locks[name] = false
-  end
-
-  procedure sendPipe input src as text, dst as text
-    val v as text : globals[src]
-    when not pipes.contains(dst) pipes[dst] = [] end
-    pipes[dst].append(v)
-  end
-
-  #===============================================================================
-  # VI. CODEGEN: NASM EMISSION
-  #===============================================================================
-  
-  procedure emitNasm input ir as list<nest>
-    val out as text : "section .data\n"
-    # ... generate data section
-    out += "section .text\n  global _start\n_start:\n"
-    for instr in ir
-      # Map IR ops to NASM instructions
-      when instr.op == "LOADSTR"
-        out += "  mov rax,1\n  mov rdi,1\n  lea rsi,[rel " + instr.args[0] + "]\n"
-      end
-    done
-    out += "  mov rax,60\n  xor rdi,rdi\n  syscall\n"
-    return out
-  end
-
-  #===============================================================================
-  # VII. BOOTSTRAP ENTRYPOINT
-  #===============================================================================
-  define argv as list<text> : @ARGV
-
-  when argv[0] == "build"
-    val src as text : read_file(argv[1])
-    val toks as list<nest> : lex(src)
-    val ast as list<nest> : parse(toks)
-    val ir  as list<nest> : genIR(ast)
-    write_file("output.ir", ir.str)
-    write_file("out.asm", emitNasm(ir))
-
-  elsewhen argv[0] == "run"
-    val irtxt as text : read_file("output.ir")
-    val ir    as list<nest> : parseIR(irtxt)
-    runVM(ir)
-
-  elsewhen argv[0] == "debug"
-    val irtxt as text : read_file("output.ir")
-    val ir    as list<nest> : parseIR(irtxt)
-    debugShell(ir)
-  end
-
-end
+//------------------------------------------------------------------------------
+// CMakeLists.txt
+//------------------------------------------------------------------------------
+#cmake_minimum_required(VERSION 3.10)
+#project(quarterc CXX)
+#set(CMAKE_CXX_STANDARD 14)
+#include_directories(include)
+#file(GLOB SOURCES "src/*.cpp")
+#add_executable(quarterc ${SOURCES})
+#target_link_libraries(quarterc pthread)
