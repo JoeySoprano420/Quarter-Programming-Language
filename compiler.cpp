@@ -138,7 +138,9 @@ struct ProgramNode : ASTNode {
 struct ValNode : ASTNode {
     std::string name;
     std::string type;
-    std::string value;
+    ASTNode* expr = nullptr; // Support for arithmetic expressions
+    std::string value; // For backward compatibility (simple assignments)
+    ~ValNode() { delete expr; }
 };
 
 struct SayNode : ASTNode {
@@ -171,6 +173,27 @@ struct FnNode : ASTNode {
     ~FnNode() {
         for (auto* stmt : body) delete stmt;
     }
+};
+
+// Arithmetic expression nodes
+enum class BinOp { Add, Sub, Mul, Div };
+
+struct ExprNode : ASTNode {};
+
+struct NumberNode : ExprNode {
+    std::string value;
+};
+
+struct VarNode : ExprNode {
+    std::string name;
+};
+
+struct BinaryOpNode : ExprNode {
+    BinOp op;
+    ExprNode* left;
+    ExprNode* right;
+    BinaryOpNode(BinOp op, ExprNode* l, ExprNode* r) : op(op), left(l), right(r) {}
+    ~BinaryOpNode() { delete left; delete right; }
 };
 
 // === Parser ===
@@ -216,11 +239,15 @@ private:
         consume(":", "Expected ':' after val name");
         std::string type = advance().value;
         consume("=", "Expected '=' after val type");
-        std::string value = advance().value;
+        // Try to parse an expression
+        ASTNode* expr = parseExpression();
         ValNode* node = new ValNode();
         node->name = name;
         node->type = type;
-        node->value = value;
+        node->expr = expr;
+        // For backward compatibility, if expr is a NumberNode or VarNode, set value
+        if (auto num = dynamic_cast<NumberNode*>(expr)) node->value = num->value;
+        else if (auto var = dynamic_cast<VarNode*>(expr)) node->value = var->name;
         return node;
     }
     ASTNode* parseSay() {
@@ -274,6 +301,37 @@ private:
         consume("}", "Expected '}' after fn body");
         return node;
     }
+
+    // --- Arithmetic Expression Parsing (very basic, left-to-right, + - * /) ---
+    ExprNode* parseExpression() {
+        ExprNode* left = parsePrimary();
+        while (match("+") || match("-") || match("*") || match("/")) {
+            std::string op = advance().value;
+            ExprNode* right = parsePrimary();
+            BinOp binop = BinOp::Add;
+            if (op == "+") binop = BinOp::Add;
+            else if (op == "-") binop = BinOp::Sub;
+            else if (op == "*") binop = BinOp::Mul;
+            else if (op == "/") binop = BinOp::Div;
+            left = new BinaryOpNode(binop, left, right);
+        }
+        return left;
+    }
+    ExprNode* parsePrimary() {
+        Token t = advance();
+        if (t.type == TokenKind::NUMBER) {
+            auto* node = new NumberNode();
+            node->value = t.value;
+            return node;
+        } else if (t.type == TokenKind::IDENTIFIER) {
+            auto* node = new VarNode();
+            node->name = t.value;
+            return node;
+        } else {
+            std::cerr << "Parse error: Expected number or identifier in expression at line " << t.line << "\n";
+            std::exit(1);
+        }
+    }
 };
 
 // === Code Generator ===
@@ -282,44 +340,58 @@ public:
     void generate(ProgramNode* program) {
         std::cout << "[CodeGen] IR:\n";
         for (auto* stmt : program->statements) {
-            if (auto* val = dynamic_cast<ValNode*>(stmt)) {
-                std::cout << "val " << val->name << ":" << val->type << " = " << val->value << "\n";
-            } else if (auto* say = dynamic_cast<SayNode*>(stmt)) {
-                std::cout << "say \"" << say->message << "\"\n";
-            } else if (auto* loop = dynamic_cast<LoopNode*>(stmt)) {
-                std::cout << "loop " << loop->varName << " from " << loop->from << " to " << loop->to << " {\n";
-                for (auto* bodyStmt : loop->body) {
-                    if (auto* say2 = dynamic_cast<SayNode*>(bodyStmt)) {
-                        std::cout << "  say \"" << say2->message << "\"\n";
-                    }
-                }
-                std::cout << "}\n";
-            } else if (auto* ifn = dynamic_cast<IfNode*>(stmt)) {
-                std::cout << "when " << ifn->conditionVar << " {\n";
-                for (auto* s : ifn->thenBranch) {
-                    if (auto* say2 = dynamic_cast<SayNode*>(s)) {
-                        std::cout << "  say \"" << say2->message << "\"\n";
-                    }
-                }
-                std::cout << "}";
-                if (!ifn->elseBranch.empty()) {
-                    std::cout << " else {\n";
-                    for (auto* s : ifn->elseBranch) {
-                        if (auto* say2 = dynamic_cast<SayNode*>(s)) {
-                            std::cout << "  say \"" << say2->message << "\"\n";
-                        }
-                    }
-                    std::cout << "}\n";
-                }
-            } else if (auto* fn = dynamic_cast<FnNode*>(stmt)) {
-                std::cout << "fn " << fn->name << " {\n";
-                for (auto* bodyStmt : fn->body) {
-                    if (auto* say2 = dynamic_cast<SayNode*>(bodyStmt)) {
-                        std::cout << "  say \"" << say2->message << "\"\n";
-                    }
-                }
-                std::cout << "}\n";
+            generateNode(stmt, 0);
+        }
+    }
+private:
+    void generateNode(ASTNode* stmt, int indent) {
+        std::string ind(indent, ' ');
+        if (auto* val = dynamic_cast<ValNode*>(stmt)) {
+            std::cout << ind << "val " << val->name << ":" << val->type << " = ";
+            if (val->expr) printExpr(val->expr);
+            else std::cout << val->value;
+            std::cout << "\n";
+        } else if (auto* say = dynamic_cast<SayNode*>(stmt)) {
+            std::cout << ind << "say \"" << say->message << "\"\n";
+        } else if (auto* loop = dynamic_cast<LoopNode*>(stmt)) {
+            std::cout << ind << "loop " << loop->varName << " from " << loop->from << " to " << loop->to << " {\n";
+            for (auto* bodyStmt : loop->body) {
+                generateNode(bodyStmt, indent + 2);
             }
+            std::cout << ind << "}\n";
+        } else if (auto* ifn = dynamic_cast<IfNode*>(stmt)) {
+            std::cout << ind << "when " << ifn->conditionVar << " {\n";
+            for (auto* s : ifn->thenBranch) generateNode(s, indent + 2);
+            std::cout << ind << "}";
+            if (!ifn->elseBranch.empty()) {
+                std::cout << " else {\n";
+                for (auto* s : ifn->elseBranch) generateNode(s, indent + 2);
+                std::cout << ind << "}\n";
+            } else {
+                std::cout << "\n";
+            }
+        } else if (auto* fn = dynamic_cast<FnNode*>(stmt)) {
+            std::cout << ind << "fn " << fn->name << " {\n";
+            for (auto* bodyStmt : fn->body) generateNode(bodyStmt, indent + 2);
+            std::cout << ind << "}\n";
+        }
+    }
+    void printExpr(ASTNode* expr) {
+        if (auto* num = dynamic_cast<NumberNode*>(expr)) {
+            std::cout << num->value;
+        } else if (auto* var = dynamic_cast<VarNode*>(expr)) {
+            std::cout << var->name;
+        } else if (auto* bin = dynamic_cast<BinaryOpNode*>(expr)) {
+            std::cout << "(";
+            printExpr(bin->left);
+            switch (bin->op) {
+                case BinOp::Add: std::cout << " + "; break;
+                case BinOp::Sub: std::cout << " - "; break;
+                case BinOp::Mul: std::cout << " * "; break;
+                case BinOp::Div: std::cout << " / "; break;
+            }
+            printExpr(bin->right);
+            std::cout << ")";
         }
     }
 };
