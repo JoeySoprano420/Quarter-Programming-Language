@@ -155,6 +155,24 @@ struct LoopNode : ASTNode {
     }
 };
 
+struct IfNode : ASTNode {
+    std::string conditionVar;
+    std::vector<ASTNode*> thenBranch;
+    std::vector<ASTNode*> elseBranch;
+    ~IfNode() {
+        for (auto* stmt : thenBranch) delete stmt;
+        for (auto* stmt : elseBranch) delete stmt;
+    }
+};
+
+struct FnNode : ASTNode {
+    std::string name;
+    std::vector<ASTNode*> body;
+    ~FnNode() {
+        for (auto* stmt : body) delete stmt;
+    }
+};
+
 // === Parser ===
 class Parser {
 public:
@@ -187,6 +205,8 @@ private:
         if (match("val")) return parseVal();
         if (match("say")) return parseSay();
         if (match("loop")) return parseLoop();
+        if (match("when")) return parseIf();
+        if (match("fn")) return parseFn();
         advance(); // skip unknown
         return nullptr;
     }
@@ -228,6 +248,32 @@ private:
         consume("}", "Expected '}' to end loop body");
         return node;
     }
+    ASTNode* parseIf() {
+        advance(); // 'when'
+        std::string cond = advance().value;
+        consume("{", "Expected '{' after condition");
+        auto* node = new IfNode();
+        node->conditionVar = cond;
+        while (!match("}")) node->thenBranch.push_back(parseStatement());
+        consume("}", "Expected '}' after then block");
+        if (match("else")) {
+            advance();
+            consume("{", "Expected '{' after else");
+            while (!match("}")) node->elseBranch.push_back(parseStatement());
+            consume("}", "Expected '}' after else block");
+        }
+        return node;
+    }
+    ASTNode* parseFn() {
+        advance(); // 'fn'
+        std::string name = advance().value;
+        consume("{", "Expected '{' after fn name");
+        auto* node = new FnNode();
+        node->name = name;
+        while (!match("}")) node->body.push_back(parseStatement());
+        consume("}", "Expected '}' after fn body");
+        return node;
+    }
 };
 
 // === Code Generator ===
@@ -243,6 +289,31 @@ public:
             } else if (auto* loop = dynamic_cast<LoopNode*>(stmt)) {
                 std::cout << "loop " << loop->varName << " from " << loop->from << " to " << loop->to << " {\n";
                 for (auto* bodyStmt : loop->body) {
+                    if (auto* say2 = dynamic_cast<SayNode*>(bodyStmt)) {
+                        std::cout << "  say \"" << say2->message << "\"\n";
+                    }
+                }
+                std::cout << "}\n";
+            } else if (auto* ifn = dynamic_cast<IfNode*>(stmt)) {
+                std::cout << "when " << ifn->conditionVar << " {\n";
+                for (auto* s : ifn->thenBranch) {
+                    if (auto* say2 = dynamic_cast<SayNode*>(s)) {
+                        std::cout << "  say \"" << say2->message << "\"\n";
+                    }
+                }
+                std::cout << "}";
+                if (!ifn->elseBranch.empty()) {
+                    std::cout << " else {\n";
+                    for (auto* s : ifn->elseBranch) {
+                        if (auto* say2 = dynamic_cast<SayNode*>(s)) {
+                            std::cout << "  say \"" << say2->message << "\"\n";
+                        }
+                    }
+                    std::cout << "}\n";
+                }
+            } else if (auto* fn = dynamic_cast<FnNode*>(stmt)) {
+                std::cout << "fn " << fn->name << " {\n";
+                for (auto* bodyStmt : fn->body) {
                     if (auto* say2 = dynamic_cast<SayNode*>(bodyStmt)) {
                         std::cout << "  say \"" << say2->message << "\"\n";
                     }
