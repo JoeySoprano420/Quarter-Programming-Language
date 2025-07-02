@@ -801,3 +801,4 @@ int main(int argc, char* argv[]) {
     vm.execute("output.asm");
     return 0;
 }
+
