@@ -218,6 +218,100 @@ private:
     void inspectMemory() {}
 };
 
+// === Language Server Protocol (LSP) Stub ===
+class LanguageServer {
+public:
+    void start() {
+        // TODO: Implement JSON-RPC over stdio or TCP for LSP
+        std::cout << "[LSP] Language server started (stub)\n";
+    }
+    // Add handlers for textDocument/didOpen, completion, hover, etc.
+};
+
+// === Self-hosting Compiler Entry Point ===
+class QuarterSelfHost {
+public:
+    void compile(const std::string& sourcePath) {
+        // TODO: Parse QuarterLang source, emit C++/LLVM/bytecode
+        std::cout << "[SelfHost] Compiling " << sourcePath << " (stub)\n";
+    }
+};
+
+// === WebAssembly Frontend Stub ===
+class QuarterWasmFrontend {
+public:
+    void compileToWasm(const std::string& sourcePath) {
+        // TODO: Parse and emit WASM binary/text
+        std::cout << "[WASM] Compiling to WebAssembly (stub)\n";
+    }
+};
+
+// === Scientific/ML DSL Stub ===
+class QuarterML {
+public:
+    void runScript(const std::string& script) {
+        // TODO: Integrate with BLAS/LAPACK or call Python via FFI
+        std::cout << "[ML] Running scientific script (stub)\n";
+    }
+};
+
+// === Operating System Integration Stub ===
+class QuarterOS {
+public:
+    void sysCall(const std::string& name) {
+        // TODO: Implement FFI to OS syscalls, e.g., open, read, write
+        std::cout << "[OS] System call: " << name << " (stub)\n";
+    }
+};
+
+// === Manual Memory Management Stub ===
+class QuarterMemory {
+public:
+    void* allocate(size_t bytes) {
+        // TODO: Custom allocator, pool, or arena
+        std::cout << "[Memory] Allocating " << bytes << " bytes (stub)\n";
+        return malloc(bytes);
+    }
+    void deallocate(void* ptr) {
+        std::cout << "[Memory] Deallocating memory (stub)\n";
+        free(ptr);
+    }
+};
+
+// === Zero-cost Abstractions Example ===
+template<typename T>
+class ZeroCostArray {
+    T* data;
+    size_t size_;
+public:
+    ZeroCostArray(size_t n) : data(new T[n]), size_(n) {}
+    ~ZeroCostArray() { delete[] data; }
+    T& operator[](size_t i) { return data[i]; }
+    size_t size() const { return size_; }
+    // No virtuals, no heap indirection, inlined access
+};
+
+// === Real int/float/text Memory Typing ===
+enum class MemType { INT, FLOAT, TEXT };
+struct MemCell {
+    MemType type;
+    union {
+        int i;
+        float f;
+    };
+    std::string text;
+    MemCell() : type(MemType::INT), i(0) {}
+};
+
+// === Capsule Sandboxing Stub ===
+class CapsuleSandbox {
+public:
+    void run(const std::string& capsulePath) {
+        // TODO: Use OS sandboxing (seccomp, AppContainer, chroot, etc.)
+        std::cout << "[Sandbox] Running capsule: " << capsulePath << " (stub)\n";
+    }
+};
+
 // === Main Compiler and Runner ===
 int main(int argc, char* argv[]) {
     if (argc < 2) {
