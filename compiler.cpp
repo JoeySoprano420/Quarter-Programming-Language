@@ -13,14 +13,27 @@
 #include <cstdlib>
 #include <thread>
 
+#ifdef _WIN32
+#include <windows.h>
+#include <io.h>
+#include <fcntl.h>
+#endif
+
 // === Token Types ===
-enum class TokenType {
-    KEYWORD, IDENTIFIER, NUMBER, STRING, SYMBOL, DG, END_OF_FILE
+// TokenKind enumerates all possible token categories produced by the lexer.
+enum class TokenKind {
+    KEYWORD,        // Reserved words in the language (e.g., "val", "say", "loop")
+    IDENTIFIER,     // User-defined names (variables, functions, etc.)
+    NUMBER,         // Numeric literals (e.g., 123, 42)
+    STRING,         // String literals (e.g., "hello")
+    SYMBOL,         // Single-character symbols (e.g., :, =, {, }, etc.)
+    DG,             // Special type for "dg" (domain-specific, e.g., for graphs)
+    END_OF_FILE     // End of input marker
 };
 
-// === Token Structure ===
+// Define the Token structure after the TokenKind enum declaration.
 struct Token {
-    TokenType type;
+    TokenKind type;
     std::string value;
     int line;
 };
@@ -65,13 +78,13 @@ private:
         while (std::isalnum(peek()) || peek() == '_') advance();
         std::string word = source.substr(start, pos - start);
         if (keywords.count(word))
-            return Token{ TokenType::KEYWORD, word, line };
-        return Token{ TokenType::IDENTIFIER, word, line };
+            return Token{ TokenKind::KEYWORD, word, line };
+        return Token{ TokenKind::IDENTIFIER, word, line };
     }
     Token readNumber() {
         size_t start = pos;
         while (std::isdigit(peek())) advance();
-        return Token{ TokenType::NUMBER, source.substr(start, pos - start), line };
+        return Token{ TokenKind::NUMBER, source.substr(start, pos - start), line };
     }
     Token readString() {
         advance(); // skip opening "
@@ -79,11 +92,11 @@ private:
         while (peek() != '"' && peek() != '\0') advance();
         std::string str = source.substr(start, pos - start);
         if (peek() == '"') advance();
-        return Token{ TokenType::STRING, str, line };
+        return Token{ TokenKind::STRING, str, line };
     }
     Token readSymbol() {
         char c = advance();
-        return Token{ TokenType::SYMBOL, std::string(1, c), line };
+        return Token{ TokenKind::SYMBOL, std::string(1, c), line };
     }
 };
 
@@ -106,7 +119,7 @@ std::vector<Token> Lexer::tokenize() {
             tokens.push_back(readSymbol());
         }
     }
-    tokens.push_back(Token{ TokenType::END_OF_FILE, "", line });
+    tokens.push_back(Token{ TokenKind::END_OF_FILE, "", line });
     return tokens;
 }
 
@@ -168,7 +181,7 @@ private:
         }
         advance();
     }
-    bool isAtEnd() { return peek().type == TokenType::END_OF_FILE; }
+    bool isAtEnd() { return peek().type == TokenKind::END_OF_FILE; }
 
     ASTNode* parseStatement() {
         if (match("val")) return parseVal();
@@ -262,14 +275,24 @@ public:
         for (auto* stmt : program->statements) {
             if (auto* say = dynamic_cast<SayNode*>(stmt)) {
                 std::string label = strLabels[strId++];
+#ifdef _WIN32
+                // Windows: Use WriteFile syscall via inline assembly or call C runtime
+                // For demonstration, emit a comment
+                out << "    ; Windows: Output not implemented in NASM stub\n";
+#else
                 out << "    mov rax, 1\n";
                 out << "    mov rdi, 1\n";
                 out << "    mov rsi, " << label << "\n";
                 out << "    mov rdx, " << (say->message.size() + 1) << "\n";
                 out << "    syscall\n";
+#endif
             }
         }
+#ifdef _WIN32
+        out << "    ; Windows: Exit process (not implemented in NASM stub)\n";
+#else
         out << "    mov rax, 60\n    xor rdi, rdi\n    syscall\n";
+#endif
         out.close();
         std::cout << "[NASM] Assembly written to output.asm\n";
     }
@@ -290,7 +313,13 @@ public:
                 size_t pos = line.find("\"");
                 if (pos != std::string::npos) {
                     std::string msg = line.substr(pos + 1, line.rfind("\"") - pos - 1);
+#ifdef _WIN32
+                    // Set output mode to UTF-8 for Windows console
+                    static bool once = [](){ _setmode(_fileno(stdout), _O_U8TEXT); return true; }();
+                    std::wcout << std::wstring(msg.begin(), msg.end()) << std::endl;
+#else
                     std::cout << msg << std::endl;
+#endif
                 }
             }
         }
@@ -306,7 +335,12 @@ public:
                 size_t pos = line.find("\"");
                 if (pos != std::string::npos) {
                     std::string msg = line.substr(pos + 1, line.rfind("\"") - pos - 1);
+#ifdef _WIN32
+                    static bool once = [](){ _setmode(_fileno(stdout), _O_U8TEXT); return true; }();
+                    std::wcout << std::wstring(msg.begin(), msg.end()) << std::endl;
+#else
                     std::cout << msg << std::endl;
+#endif
                 }
             }
         }
@@ -346,6 +380,11 @@ public:
 
 // === Main Compiler and Runner ===
 int main(int argc, char* argv[]) {
+#ifdef _WIN32
+    // Set stdin/stdout to UTF-8 for Windows console
+    _setmode(_fileno(stdin), _O_U8TEXT);
+    _setmode(_fileno(stdout), _O_U8TEXT);
+#endif
     if (argc < 2) {
         std::cerr << "Usage: quarterc <source.qtr | run file.qtrcapsule | debug file.qtrcapsule | lsp>\n";
         return 1;
