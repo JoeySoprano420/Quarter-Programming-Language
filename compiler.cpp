@@ -34,7 +34,7 @@ struct TypedValue {
 // === Lexer ===
 class Lexer {
 public:
-    explicit Lexer(const std::string& src);
+    explicit Lexer(const std::string& src) : source(src), pos(0), line(1) {}
     std::vector<Token> tokenize();
 
 private:
@@ -47,15 +47,65 @@ private:
         "procedure", "return", "yield", "thread", "pipe", "nest",
         "fn", "asm", "stop", "dg_add", "dg_mul"
     };
-    char peek() const;
-    char advance();
-    void skipWhitespace();
-    void skipComment();
-    Token readWord();
-    Token readNumber();
-    Token readString();
-    Token readSymbol();
+    char peek() const { return pos < source.size() ? source[pos] : '\0'; }
+    char advance() { return pos < source.size() ? source[pos++] : '\0'; }
+    void skipWhitespace() {
+        while (std::isspace(peek())) {
+            if (peek() == '\n') ++line;
+            advance();
+        }
+    }
+    void skipComment() {
+        if (peek() == '#') {
+            while (peek() != '\n' && peek() != '\0') advance();
+        }
+    }
+    Token readWord() {
+        size_t start = pos;
+        while (std::isalnum(peek()) || peek() == '_') advance();
+        std::string word = source.substr(start, pos - start);
+        if (keywords.count(word))
+            return Token{ TokenType::KEYWORD, word, line };
+        return Token{ TokenType::IDENTIFIER, word, line };
+    }
+    Token readNumber() {
+        size_t start = pos;
+        while (std::isdigit(peek())) advance();
+        return Token{ TokenType::NUMBER, source.substr(start, pos - start), line };
+    }
+    Token readString() {
+        advance(); // skip opening "
+        size_t start = pos;
+        while (peek() != '"' && peek() != '\0') advance();
+        std::string str = source.substr(start, pos - start);
+        if (peek() == '"') advance();
+        return Token{ TokenType::STRING, str, line };
+    }
+    Token readSymbol() {
+        char c = advance();
+        return Token{ TokenType::SYMBOL, std::string(1, c), line };
+    }
 };
+
+std::vector<Token> Lexer::tokenize() {
+    std::vector<Token> tokens;
+    while (peek() != '\0') {
+        skipWhitespace();
+        skipComment();
+        if (peek() == '\0') break;
+        if (std::isalpha(peek()) || peek() == '_') {
+            tokens.push_back(readWord());
+        } else if (std::isdigit(peek())) {
+            tokens.push_back(readNumber());
+        } else if (peek() == '"') {
+            tokens.push_back(readString());
+        } else {
+            tokens.push_back(readSymbol());
+        }
+    }
+    tokens.push_back(Token{ TokenType::END_OF_FILE, "", line });
+    return tokens;
+}
 
 // === AST Nodes ===
 struct ASTNode {
@@ -110,62 +160,62 @@ struct ThreadNode : ASTNode {
 // === Parser ===
 class Parser {
 public:
-    explicit Parser(const std::vector<Token>& tokens);
-    ProgramNode* parse();
+    explicit Parser(const std::vector<Token>& tokens) : tokens(tokens), current(0) {}
+    ProgramNode* parse() { return nullptr; } // Stub
 
 private:
     std::vector<Token> tokens;
     size_t current;
-    Token peek();
-    Token advance();
-    bool match(const std::string& value);
-    void consume(const std::string& expected, const std::string& err);
-    bool isAtEnd();
-    ASTNode* parseStatement();
-    ASTNode* parseVal();
-    ASTNode* parseSay();
-    ASTNode* parseDerive();
-    ASTNode* parseLoop();
-    ASTNode* parseProcedure();
-    ASTNode* parseReturn();
-    ASTNode* parseYield();
-    ASTNode* parseThread();
+    Token peek() { return tokens[current]; }
+    Token advance() { return tokens[current++]; }
+    bool match(const std::string& value) { return peek().value == value; }
+    void consume(const std::string& expected, const std::string& err) {}
+    bool isAtEnd() { return peek().type == TokenType::END_OF_FILE; }
+    ASTNode* parseStatement() { return nullptr; }
+    ASTNode* parseVal() { return nullptr; }
+    ASTNode* parseSay() { return nullptr; }
+    ASTNode* parseDerive() { return nullptr; }
+    ASTNode* parseLoop() { return nullptr; }
+    ASTNode* parseProcedure() { return nullptr; }
+    ASTNode* parseReturn() { return nullptr; }
+    ASTNode* parseYield() { return nullptr; }
+    ASTNode* parseThread() { return nullptr; }
 };
 
 // === Code Generator ===
 class CodeGenerator {
 public:
-    void generate(ProgramNode* program);
+    void generate(ProgramNode* program) {}
 };
 
 // === NASM Codegen ===
 class NasmCodegen {
 public:
-    void compileToNasm(ProgramNode* program);
+    void compileToNasm(ProgramNode* program) {}
 };
 
 // === Capsule VM Runtime ===
 class CapsuleVM {
 public:
-    void execute(const std::string& capsulePath);
-    void runInteractive();
-    void enterDebugShell();
+    void execute(const std::string& capsulePath) {}
+    void runInteractive() {}
+    void enterDebugShell() {}
 
 private:
-    using Scope = std::unordered_map<std::string, TypedValue>;
+    typedef std::unordered_map<std::string, TypedValue> Scope;
     std::stack<Scope> memoryStack;
     std::unordered_map<std::string, ProcedureNode*> procedures;
 
-    void runLine(const std::string& line);
-    void executeLoop(const std::string& var, int from, int to, const std::vector<std::string>& body);
-    void callProcedure(const std::string& name, const std::vector<std::string>& args);
-    void runThreadedProcedure(const std::string& name);
-    void pushScope();
-    void popScope();
-    std::string getVar(const std::string& name);
-    void setVar(const std::string& name, const std::string& value, const std::string& type);
-    void reportError(const std::string& msg, int line);
-    void inspectMemory();
+    void runLine(const std::string& line) {}
+    void executeLoop(const std::string& var, int from, int to, const std::vector<std::string>& body) {}
+    void callProcedure(const std::string& name, const std::vector<std::string>& args) {}
+    void runThreadedProcedure(const std::string& name) {}
+    void pushScope() {}
+    void popScope() {}
+    std::string getVar(const std::string& name) { return ""; }
+    void setVar(const std::string& name, const std::string& value, const std::string& type) {}
+    void reportError(const std::string& msg, int line) {}
+    void inspectMemory() {}
 };
 
 // === Main Compiler and Runner ===
@@ -200,3 +250,7 @@ int main(int argc, char* argv[]) {
     vm.execute("output.qtrcapsule");
     return 0;
 }
+
+// === Remove C++17/C++20/LLVM/JSON/Filesystem/Structured Bindings/quarterpkg.hpp ===
+// All C++17+ features, unavailable headers, and advanced constructs have been removed or replaced with C++14-compatible stubs.
+
