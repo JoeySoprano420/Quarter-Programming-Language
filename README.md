@@ -391,3 +391,71 @@ loop from 1 to 3:
   say "Quarter Running..."
 
 end
+
+
+
+
+
+# QuarterLang AOT Compiler 🔧
+
+**Readable like English. Powerful like Assembly. Beautiful like poetry.**
+
+This is the official AOT compiler for [QuarterLang](https://github.com/JoeySoprano420/Quarter-Programming-Language), designed to compile `.qtr` source files directly into **Windows x86-64 binaries** using **inline NASM**, **inline hexadecimal IR**, and **DodecaGram (DG)** annotations.
+
+---
+
+## 🧠 Architecture
+
+- **Lexer → Parser → AST → DG IR → NASM + Hex**
+- **SIMD-aware DG backend**
+- **Inline DG + Hex IR + NASM**
+- **Zero-runtime startup**
+- **Built-in concurrency, async/await, threads**
+- **LLVM IR bridge for hybrid optimization**
+- **Massive SIMD-optimized stdlib (math, I/O, crypto, net)**
+- **FFI to .NET and WebAssembly**
+
+---
+
+## 📁 Directory Structure
+
+QuarterLang_Compiler/ ├── QuarterLang_MemoryHandler.asm ├── QuarterLang_RangeAdjuster.asm ├── QuarterLang_ErrorHandler.asm ├── QuarterLang_Indexter.asm ├── QuarterLang_IO.asm ├── QuarterLang_Filer.asm ├── QuarterLang_LibrarySystem.asm ├── QuarterLang_Lexer.asm ├── QuarterLang_SyntaxHighlighter.asm ├── QuarterLang_Formatter.asm ├── QuarterLang_Parser.asm ├── QuarterLang_AST.asm ├── QuarterLang_IRBytecode.asm ├── QuarterLang_Encapsulation.asm ├── QuarterLang_Scoper.asm ├── QuarterLang_Binder.asm ├── QuarterLang_Adapter.asm ├── QuarterLang_Composer.asm ├── QuarterLang_Seeder.asm ├── QuarterLang_CodeGenerator.asm ├── QuarterLang_BinaryEmitter.asm ├── QuarterLang_Renderer.asm ├── QuarterLang_Optimizer.asm ├── QuarterLang_Compactor.asm ├── QuarterLang_Inliner.asm ├── QuarterLang_TLCM.asm ├── QuarterLang_Wrapper.asm ├── QuarterLang_Environment.asm ├── QuarterLang_Runtime.asm ├── QuarterLang_Runner.asm ├── QuarterLang_Debugger.asm ├── QuarterLang_PackageManager.asm ├── QuarterLang_Protocol.asm ├── QuarterLang_CodeInjector.asm ├── QuarterLang_SyntaxHighlighter_IDE.asm ├── QuarterLang_CodeCompletionAgent.asm ├── QuarterLang_Detector.asm ├── QuarterLang_Reader.asm ├── QuarterLang_Formatter_UI.asm └── QuarterLang_CICDPipeline.asm
+
+
+
+---
+
+## 🧪 Example Output
+
+QuarterLang:
+```quarter
+say "Hello, Quarter!"
+exit
+
+
+NASM + Hex + DG:
+NASM:
+mov rax, 1              ; db 0xB8, 0x01, 0x00, 0x00, 0x00   ; [DG:SYSCALL_WRITE]
+mov rdi, 1              ; db 0xBF, 0x01, 0x00, 0x00, 0x00   ; [DG:FD_STDOUT]
+mov rsi, msg            ; db 0x48, 0x8D, 0x35, ...          ; [DG:PTR_HELLO]
+mov rdx, 18             ; db 0xBA, 0x12, 0x00, 0x00, 0x00   ; [DG:LEN_HELLO]
+syscall                 ; db 0x0F, 0x05                     ; [DG:SYSCALL]
+
+
+🛠 Build Instructions:
+Bash:
+nasm -f win64 QuarterLang_Runner.asm -o runner.obj
+link runner.obj /SUBSYSTEM:CONSOLE /OUT:runner.exe
+
+
+📚 License
+MIT © 2025 Violet Aura Creations Inspired by the vision of QuarterLang
+
+
+✨ Contributions
+Pull requests, forks, and DG-enhanced modules welcome!
+
+
+
+
+
