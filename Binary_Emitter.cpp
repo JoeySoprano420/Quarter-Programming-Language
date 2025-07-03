@@ -12,3 +12,4 @@ public:
         system(linkCmd.c_str());
     }
 };
+
