@@ -231,28 +231,8 @@ quarter:
 star
   ...code...
 end
-🧾 Statements & Keywords
-Keyword	Purpose	Example
-val	Declare immutable variable	val x as int: 5
-var	Declare mutable variable	var score as float: 0.0
-say	Output a value	say "hello"
-loop	Create a for-loop	loop from 1 to 5:
-when	Conditional branch	when x > 0:
-else	Alternative branch	else:
-derive	Define a value as a transformation	derive speed from velocity by 2
-dg	Declare a DG (dodecagram, base-12)	val x as dg: 9A1
-match	Match against multiple cases	match score:
-case	Case in match	case 100:
-define	Define a function	define greet():
-procedure	Alternative to define	procedure run():
-return	Exit function with value	return 5
-yield	Yield from generator	yield item
-thread	Launch in parallel	thread do_work()
-pipe	Direct output or data flow	val out as pipe: "output.log"
-nest	Nest or inline encapsulation	nest x:
-fn	Anonymous function	fn a b -> a + b
-asm	Inline assembly block	asm { mov rax, 5 }
-stop	Immediate program halt	stop
+
+
 
 🧠 Expressions & Evaluations
 🎯 Arithmetic
