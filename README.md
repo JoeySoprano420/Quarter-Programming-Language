@@ -33,7 +33,7 @@ star
 end
 ```
 
-All programs start with `star` and end with `end`. Every open block must be closed.
+**All programs start with `star` and end with `end`. Every open block must be closed.**
 
 ---
 
@@ -190,22 +190,6 @@ writeCapsuleWithDG(asmCode, srcCode, dg_meta);
 
 ---
 
-## 📂 Project Structure
-```
-/quarterlang
-├── compiler.cpp
-├── runtime.cpp
-├── README.md  ← This file
-├── examples/
-│   ├── test_derive_01.qtr
-│   ├── test_dg_01.qtr
-│   └── test_dg_math.qtr
-└── out/
-    └── program.qtrcapsule
-```
-
----
-
 ## ✅ Example Program
 ```quarter
 star
@@ -228,7 +212,7 @@ end
 
 ## 🔗 License
 MIT © 2025 Violet Aura Creations  
-Follow development: [github.com/violet-aura/quarterlang](#)
+Follow development: [https://github.com/JoeySoprano420/Quarter-Programming-Language](#)
 
 ---
 
