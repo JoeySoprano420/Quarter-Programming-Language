@@ -281,5 +281,19 @@ Pull requests, forks, and DG-enhanced modules welcome!
 
 
 
+Example_Input.qtr
 
+val score as int: 10
+truths: energy motion
+proofs validate score against motion
+loop from 1 to 3:
 
+Output
+
+[val] score = 10 (int)
+[truths] energy motion
+[proofs] validate score vs motion
+[loop] from 1 to 3
+  ➜ Iteration: 1
+  ➜ Iteration: 2
+  ➜ Iteration: 3
