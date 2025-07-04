@@ -1,0 +1,53 @@
+star
+
+define tokenize(line as string) as list<string>:
+  // split by space, colon, etc.
+  val tokens as list<string>: []
+  loop from 0 to len(line):
+    ... // push token into tokens
+  return tokens
+
+define parse(tokens as list<string>) as ASTNode:
+  match tokens[0]:
+    case "val":
+      return parse_val(tokens)
+    case "var":
+      return parse_var(tokens)
+    case "loop":
+      return parse_loop(tokens)
+    case "define":
+      return parse_func(tokens)
+    case "derive":
+      return parse_derive(tokens)
+    case "end":
+      return create_end()
+    default:
+      return create_nop()
+
+define emit_nasm(node as ASTNode) as string:
+  match node.type:
+    case "ValDecl":
+      return "mov " + node.name + ", " + node.value
+    case "Loop":
+      return emit_loop_nasm(node)
+    ...
+  return ""
+
+define compile(source as string) as string:
+  val lines as list<string>: split_lines(source)
+  val full_asm as string: ""
+  loop from 0 to len(lines):
+    val tokens as list<string>: tokenize(lines[i])
+    val node as ASTNode: parse(tokens)
+    val asm as string: emit_nasm(node)
+    full_asm = full_asm + asm + "\n"
+  return full_asm
+
+define main():
+  val input as string: read_file("compiler.qtr")
+  val output as string: compile(input)
+  write_file("compiler.asm", output)
+
+main()
+
+end
