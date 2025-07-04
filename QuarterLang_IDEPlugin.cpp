@@ -71,3 +71,10 @@ private:
         }
     }
 };
+
+#include "QuarterLang_ExecutionPane.cpp"
+ExecutionPane pane;
+pane.start(sourceCode);     // start live running
+pane.updateCode(newCode);   // refresh with new edits
+pane.stop();                // clean shutdown
+
