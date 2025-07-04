@@ -70,3 +70,48 @@ int main(int argc, char** argv) {
 
     return 0;
 }
+
+#include "QuarterLang_ProjectLoader.cpp"
+
+int main(int argc, char** argv) {
+    if (argc < 2) {
+        std::cerr << "Usage: qtrc <file.qtr | project.qtrproj>\n";
+        return 1;
+    }
+
+    std::string entry = argv[1];
+    std::vector<std::string> files;
+
+    if (entry.ends_with(".qtrproj")) {
+        files = QuarterProjectLoader::loadSourcesFromProject(entry);
+    } else {
+        files.push_back(entry);
+    }
+
+    AST ast;
+    for (const auto& f : files) {
+        std::string code = QuarterProjectLoader::readFile(f);
+        Lexer lexer(code);
+        Parser parser(lexer.tokenize());
+        auto nodes = parser.parse();
+        for (auto& n : nodes)
+            ast.addChild(n);
+    }
+
+    std::cout << "📦 Project parsed: " << files.size() << " files\n";
+
+    IRGenerator irgen;
+    auto rawIR = irgen.generate(ast.root);
+
+    Optimizer opt;
+    auto optIR = opt.optimize(rawIR);
+
+    CodeGenerator codegen(optIR);
+    codegen.generate("output.asm");
+
+    BinaryEmitter emitter("output.asm");
+    emitter.build();
+
+    return 0;
+}
+
