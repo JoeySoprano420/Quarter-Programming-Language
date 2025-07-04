@@ -634,3 +634,41 @@ Runs compiler written in .qtr that re-generates .asm
 
 ---
 
+# QuarterLang Self‑Hosted Compiler
+
+Includes:
+
+- `compiler.qtr`: written in QuarterLang itself  
+- `compiler.asm`: NASM generated from itself  
+- `compiler.qtrcapsule`: self‑hosting compiler bundle  
+- `qtrcapsule_run.cpp`: loader + executor
+
+## Quickstart
+
+### Build & Run (Linux/macOS):
+```bash
+g++ qtrcapsule_run.cpp -lz -o qtrcapsule_run
+./qtrcapsule_run compiler.qtrcapsule
+
+---
+
+Build & Run (Windows):
+
+Batch-
+
+g++ qtrcapsule_run.cpp -lz -o qtrcapsule_run.exe
+qtrcapsule_run.exe compiler.qtrcapsule
+
+---
+
+What It Does
+Executes the self‑hosting compiler to re‑generate:
+
+compiler.asm
+
+compiler.exe (the compiler)
+
+new compiler.qtrcapsule
+
+---
+
