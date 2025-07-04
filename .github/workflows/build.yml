@@ -1,0 +1,19 @@
+name: Build Capsule Runner
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: sudo apt-get install -y build-essential nasm zlib1g-dev || choco install nasm
+      - name: Build qtrcapsule_run
+        run: g++ qtrcapsule_run.cpp -lz -o qtrcapsule_run
+      - name: Run capsule
+        run: |
+          ./qtrcapsule_run compiler.qtrcapsule
