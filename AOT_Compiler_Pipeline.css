@@ -1,0 +1,15 @@
+[ Quarter Source (.qtr) ]
+           ⬇
+  [ Lexer → Tokens ]
+           ⬇
+  [ Parser → AST ]
+           ⬇
+ [ Binder + Semantic Checker ]
+           ⬇
+[ IR → Inline Hex & DodecaGram SIMD Ops ]
+           ⬇
+   [ NASM Generator ]
+           ⬇
+     [ Binary Linker ]
+           ⬇
+     [ .exe Output 🎉 ]
