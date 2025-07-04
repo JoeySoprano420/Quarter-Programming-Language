@@ -1,0 +1,4 @@
+val score as int: 10
+truths: energy motion
+proofs validate score against motion
+loop from 1 to 3:
