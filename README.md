@@ -573,3 +573,64 @@ Perfect for embedding in your repo or docs.
 
 ---
 
+📦 .qtrcapsule Format Specification (v2.1)
+
+| Section         | Marker                                                |
+| --------------- | ----------------------------------------------------- |
+| Header          | `"QTRC2.1"` (7 bytes)                                 |
+| Compressed Body | zlib-compressed                                       |
+| Subsections     | `:::QTR_SOURCE:::`, `:::QTR_ASM:::`, `:::QTR_META:::` |
+
+---
+
+Total capsule = compressed string of:
+
+:::QTR_SOURCE:::
+<.qtr source>
+
+:::QTR_ASM:::
+<.asm>
+
+:::QTR_META:::
+<dodecagram IR metadata (optional)>
+
+---
+
+✅ Build Instructions
+On Linux/macOS:
+
+Bash-
+
+g++ qtrcapsule_run.cpp -lz -o qtrcapsule_run
+./qtrcapsule_run compiler.qtrcapsule
+
+---
+
+On Windows:
+
+Batchfile-
+
+g++ qtrcapsule_run.cpp -lz -o qtrcapsule_run.exe
+qtrcapsule_run.exe compiler.qtrcapsule
+
+---
+
+🧪 Test Case
+Once built:
+
+Bash-
+
+./qtrcapsule_run compiler.qtrcapsule
+
+---
+
+Produces:
+
+compiler.asm
+
+compiler.exe or compiler.out
+
+Runs compiler written in .qtr that re-generates .asm
+
+---
+
