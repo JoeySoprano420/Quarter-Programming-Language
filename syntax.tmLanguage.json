@@ -1,0 +1,12 @@
+// syntax.tmLanguage.json
+{
+  "name": "QuarterLang",
+  "fileTypes": ["qtr"],
+  "patterns": [
+    { "name": "keyword.control.quarter", "match": "\\b(val|var|loop|truths|proofs|dg|dgvec)\\b" },
+    { "name": "storage.type.quarter", "match": "\\b(int|bool|float|string)\\b" },
+    { "name": "constant.numeric.quarter", "match": "\\b[0-9]+\\b" },
+    { "name": "string.quoted.double.quarter", "begin": "\"", "end": "\"" }
+  ],
+  "scopeName": "source.quarter"
+}
