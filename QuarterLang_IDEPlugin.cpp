@@ -78,3 +78,30 @@ pane.start(sourceCode);     // start live running
 pane.updateCode(newCode);   // refresh with new edits
 pane.stop();                // clean shutdown
 
+#include "QuarterLang_ExecutionPane.cpp"
+
+class QuarterIDEPlugin {
+private:
+    ExecutionPane execPane;
+    std::string currentSource;
+
+public:
+    void loadFile(const std::string& path) {
+        currentSource = readFile(path);
+        execPane.start(currentSource);  // 💥 Live execution from IDE
+    }
+
+    void updateCode(const std::string& newCode) {
+        currentSource = newCode;
+        execPane.updateCode(newCode);  // 💥 Hot swap running code
+    }
+
+    void stopExecution() {
+        execPane.stop();
+    }
+
+    void showDGState(const DodecaMemory& mem) {
+        mem.dump(); // ⬅ Optional memory inspector
+    }
+};
+
